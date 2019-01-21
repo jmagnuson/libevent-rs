@@ -7,7 +7,7 @@ image: "rust:latest"
 # You will often need this when you (or any of your dependencies) depends on C code.
 before_script:
   - apt-get update -yqq
-  - apt-get install -yqq --no-install-recommends build-essential libevent-dev
+  - apt-get install -yqq --no-install-recommends build-essential libclang-dev libevent-dev
 
 # Use cargo to test the project
 build:cargo:
