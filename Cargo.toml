@@ -1,0 +1,20 @@
+[package]
+name = "libevent-sys"
+version = "0.1.0"
+authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
+edition = "2018"
+readme = "README.md"
+license = "MIT"
+description = "Rust FFI bindings to the libevent library" 
+categories = ["external-ffi-bindings"]
+keywords = ["ffi", "libevent", "event"]
+
+links = "event"
+build = "build.rs"
+
+[badges]
+gitlab = { repository = "tornado-torrent/libevent-sys", branch = "master" }
+
+[build-dependencies]
+bindgen = "^0.45"
+pkg-config = "^0.3"
