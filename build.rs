@@ -6,7 +6,7 @@ use bindgen;
 
 fn main() {
     // Use pkg-config to find and link libevent
-    pkg_config::probe_library("libevent").unwrap();
+    pkg_config::Config::new().atleast_version("2.0.0").statik(cfg!(feature = "static")).probe("libevent").unwrap();
 
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")

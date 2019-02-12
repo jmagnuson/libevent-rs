@@ -1,6 +1,6 @@
 [package]
 name = "libevent-sys"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 repository = "https://gitlab.com/tornado-torrent/libevent-sys"
 edition = "2018"
@@ -15,6 +15,9 @@ build = "build.rs"
 
 [badges]
 gitlab = { repository = "tornado-torrent/libevent-sys", branch = "master" }
+
+[features]
+static = []
 
 [build-dependencies]
 bindgen = "^0.45"
