@@ -1,6 +1,6 @@
 [package]
 name = "libevent-sys"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 repository = "https://gitlab.com/tornado-torrent/libevent-sys"
 edition = "2018"

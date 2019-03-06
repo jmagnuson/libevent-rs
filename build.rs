@@ -1,20 +1,23 @@
-use std::path::PathBuf;
 use std::env;
+use std::path::PathBuf;
 
-use pkg_config;
 use bindgen;
+use pkg_config;
 
 fn main() {
     // Use pkg-config to find and link libevent
-    pkg_config::Config::new().atleast_version("2.1.0").statik(cfg!(feature = "static")).probe("libevent").unwrap();
+    pkg_config::Config::new()
+        .atleast_version("2")
+        .statik(cfg!(feature = "static"))
+        .probe("libevent")
+        .unwrap();
 
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
-        .rustfmt_bindings(true)
-
+        // Enable for more readable bindings
+        // .rustfmt_bindings(true)
         // Fixes a bug with a duplicated const
         .blacklist_item("IPPORT_RESERVED")
-
         .generate()
         .expect("Failed to generate bindings");
 
