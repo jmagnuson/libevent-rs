@@ -50,11 +50,6 @@ int helloc_init(struct event_base *base)
   return 0;
 }
 
-int base_fd(const struct event_base* base)
-{
-  return ((struct kqop*)((struct event_base_internal*)base)->evbase)->kq;
-}
-
 int helloc_destroy(struct event_base* base)
 {
   event_base_free(base);
