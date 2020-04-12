@@ -1,0 +1,11 @@
+[generators]
+cmake
+
+[requires]
+libevent/2.1.10@bincrafters/stable
+
+[options]
+libevent:disable_threads=True
+libevent:with_openssl=False
+
+[imports]

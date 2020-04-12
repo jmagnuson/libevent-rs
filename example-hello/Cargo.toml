@@ -1,0 +1,12 @@
+[package]
+name = "hello"
+version = "0.1.0"
+authors = ["Jon Magnuson <jon.magnuson@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+libevent-sys = "0.2"
+libevent = { path = "../" }
+
+[build-dependencies]
+cmake = "0.1"
