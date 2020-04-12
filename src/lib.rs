@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::io;
 use std::os::raw::c_int;
 use std::time::Duration;
@@ -76,6 +78,7 @@ impl Libevent {
             .map(|base| Libevent { base })
     }
 
+    // TODO: This should be raw_base, and EventBase should prevent having to use raw altogether.
     pub unsafe fn with_base<F: Fn(*mut libevent_sys::event_base) -> c_int>(
         &self,
         f: F
@@ -85,7 +88,7 @@ impl Libevent {
         f(self.base.as_inner_mut())
     }
 
-    pub/*(crate) TODO*/ unsafe fn base(&self) -> &EventBase {
+    pub(crate) unsafe fn base(&self) -> &EventBase {
         &self.base
     }
 
