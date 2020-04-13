@@ -182,7 +182,7 @@ impl Libevent {
         ) };
 
         let _ = unsafe {
-            self.base().event_add(ev, Duration::from_secs(2))
+            self.base().event_add(ev, interval)
         };
 
         true
