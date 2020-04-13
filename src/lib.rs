@@ -88,6 +88,18 @@ impl EventBase {
         }
     }
 
+    pub fn loopbreak(&self) -> i32 {
+        unsafe {
+            libevent_sys::event_base_loopbreak(self.base) as i32
+        }
+    }
+
+    pub fn loopcontinue(&self) -> i32 {
+        unsafe {
+            libevent_sys::event_base_loopcontinue(self.base) as i32
+        }
+    }
+
     pub fn event_new(
         //&mut self,
         & self,
@@ -154,7 +166,7 @@ impl Libevent {
 
     /// Turns the libevent base once.
     // TODO: any way to show if work was done?
-    pub fn loop_once(&self) -> bool {
+    pub fn turn(&self) -> bool {
         let _retval = self.base.loop_(libevent_sys::EVLOOP_NONBLOCK as i32);
 
         true
@@ -162,14 +174,30 @@ impl Libevent {
 
     /// Turns the libevent base until exit or timeout duration reached.
     // TODO: any way to show if work was done?
-    pub fn loop_timeout(&self, timeout: Duration) -> bool {
+    pub fn run_timeout(&self, timeout: Duration) -> bool {
         let _retval = self.base.loopexit(timeout);
         let _retval = self.base.loop_(0i32);
 
         true
     }
 
-    pub fn add_interval<F: FnMut() + 'static>(&self, interval: Duration, cb: F) -> bool {
+    /// Turns the libevent base until next active event.
+    // TODO: any way to show if work was done?
+    pub fn run_until_event(&self) -> bool {
+        let _retval = self.base.loop_(libevent_sys::EVLOOP_ONCE as i32);
+
+        true
+    }
+
+    /// Turns the libevent base until exit.
+    // TODO: any way to show if work was done?
+    pub fn run(&self) -> bool {
+        let _retval = self.base.loop_(0i32);
+
+        true
+    }
+
+    pub fn add_interval<F: FnMut() + 'static>(&self, interval: Duration, cb: F) -> io::Result<EventHandle> {
         let cb_wrapped = Box::new(EventCallbackWrapper {
             inner: Box::new(cb)
         });
@@ -185,6 +213,16 @@ impl Libevent {
             self.base().event_add(ev, interval)
         };
 
-        true
+        Ok(EventHandle { inner: ev })
+    }
+}
+
+pub struct EventHandle {
+    inner: *mut libevent_sys::event,
+}
+
+impl Drop for EventHandle {
+    fn drop(&mut self) {
+        unsafe { libevent_sys::event_free(self.inner) }
     }
 }

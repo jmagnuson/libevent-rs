@@ -37,7 +37,7 @@ fn main() {
 
     let mut a: usize = 0;
 
-    let _ = libevent.add_interval(
+    let _ev = libevent.add_interval(
         Duration::from_secs(6),
         move || {
             a += 1;
@@ -49,7 +49,7 @@ fn main() {
 
     loop {
         let now = std::time::Instant::now();
-        libevent_ref.loop_timeout(Duration::from_secs(5));
+        libevent_ref.run_timeout(Duration::from_secs(5));
 
         let elapsed = now.elapsed();
 
