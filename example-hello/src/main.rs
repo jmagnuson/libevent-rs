@@ -45,14 +45,14 @@ fn main() {
         }
     );
 
-    let libevent_ref = &libevent;
-
-    loop {
+    for _count in 1..=3 {
         let now = std::time::Instant::now();
-        libevent_ref.run_timeout(Duration::from_secs(5));
+        libevent.run_timeout(Duration::from_secs(5));
 
         let elapsed = now.elapsed();
 
         println!("Ran libevent loop for {:?}", elapsed);
     }
+
+    libevent.run();
 }
