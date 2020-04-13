@@ -38,9 +38,14 @@ fn main() {
         base.event_new()
     })};*/
 
+    let mut a: usize = 0;
+
     let _ = libevent.add_interval(
         Duration::from_secs(6),
-        || { println!("whoaaa"); }
+        move || {
+            a += 1;
+            println!("whoaaa {}", a);
+        }
     );
 
     let libevent_ref = &libevent;
