@@ -34,9 +34,6 @@ fn main() {
     let _ = unsafe {
         libevent.base().event_add(ev, Duration::from_secs(2))
     };
-    /*let _ev = unsafe { libevent.with_base(|base| {
-        base.event_new()
-    })};*/
 
     let mut a: usize = 0;
 
@@ -44,7 +41,7 @@ fn main() {
         Duration::from_secs(6),
         move || {
             a += 1;
-            println!("whoaaa {}", a);
+            println!("interval count: {}", a);
         }
     );
 

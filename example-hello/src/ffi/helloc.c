@@ -9,10 +9,11 @@ static void timer_cb(evutil_socket_t fd, short event, void *ptr)
 {
   struct event* ev = (struct event*)ptr;
 
-  printf("hi from callback\n");
+  printf("hi from temporary callback\n");
   if (++counter > 30)
   {
     event_del(ev);
+    event_free(ev);
   }
 }
 
