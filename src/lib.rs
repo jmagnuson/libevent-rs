@@ -74,9 +74,28 @@ impl EventBase {
         self.base
     }
 
-    pub fn loop_(&self, flags: i32) -> i32 {
-        unsafe {
+    pub fn loop_(&self, flags: i32) -> ExitReason {
+        let exit_code = unsafe {
             libevent_sys::event_base_loop(self.base, flags) as i32
+        };
+
+        match exit_code {
+            0 => {
+                unsafe {
+                    if libevent_sys::event_base_got_break(self.base) != 0i32 {
+                        ExitReason::GotBreak
+                    }
+                    else if libevent_sys::event_base_got_exit(self.base) != 0i32 {
+                        ExitReason::GotExit
+                    } else {
+                        // TODO: This should match flags for `EVLOOP_ONCE`, `_NONBLOCK`, etc.
+                        ExitReason::GotExit
+                    }
+                }
+            },
+            -1 => ExitReason::Error,
+            1 => ExitReason::NoPendingEvents,
+            _ => ExitReason::Unknown(exit_code)
         }
     }
 
@@ -225,4 +244,12 @@ impl Drop for EventHandle {
     fn drop(&mut self) {
         unsafe { libevent_sys::event_free(self.inner) }
     }
+}
+
+pub enum ExitReason {
+    GotExit,
+    GotBreak,
+    Error,
+    NoPendingEvents,
+    Unknown(i32),
 }
