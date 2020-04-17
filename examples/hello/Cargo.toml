@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 libevent-sys = "0.2"
-libevent = { path = "../" }
+libevent = { path = "../../" }
 
 [build-dependencies]
 cmake = "0.1"
