@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use bitflags::bitflags;
 use std::io;
 use std::os::raw::{c_int, c_short, c_void};
 use std::time::Duration;
@@ -74,28 +75,31 @@ impl EventBase {
         self.base
     }
 
-    pub fn loop_(&self, flags: i32) -> ExitReason {
+    pub fn loop_(&self, flags: LoopFlags) -> ExitReason {
         let exit_code = unsafe {
-            libevent_sys::event_base_loop(self.base, flags) as i32
+            libevent_sys::event_base_loop(self.base, flags.bits() as i32) as i32
         };
 
         match exit_code {
             0 => {
                 unsafe {
-                    if libevent_sys::event_base_got_break(self.base) != 0i32 {
-                        ExitReason::GotBreak
-                    }
-                    else if libevent_sys::event_base_got_exit(self.base) != 0i32 {
+                    // Technically mutually-exclusive from `got_break`, but
+                    // the check in `event_base_loop` comes first, so the logic
+                    // here matches.
+                    if libevent_sys::event_base_got_exit(self.base) != 0i32 {
                         ExitReason::GotExit
+                    }
+                    else if libevent_sys::event_base_got_break(self.base) != 0i32 {
+                        ExitReason::GotBreak
                     } else {
                         // TODO: This should match flags for `EVLOOP_ONCE`, `_NONBLOCK`, etc.
-                        ExitReason::GotExit
+                        ExitReason::Unknown{ flags, exit_code }
                     }
                 }
             },
             -1 => ExitReason::Error,
             1 => ExitReason::NoPendingEvents,
-            _ => ExitReason::Unknown(exit_code)
+            _ => ExitReason::Unknown{flags, exit_code}
         }
     }
 
@@ -186,7 +190,7 @@ impl Libevent {
     /// Turns the libevent base once.
     // TODO: any way to show if work was done?
     pub fn turn(&self) -> bool {
-        let _retval = self.base.loop_(libevent_sys::EVLOOP_NONBLOCK as i32);
+        let _retval = self.base.loop_(LoopFlags::NONBLOCK);
 
         true
     }
@@ -195,7 +199,7 @@ impl Libevent {
     // TODO: any way to show if work was done?
     pub fn run_timeout(&self, timeout: Duration) -> bool {
         let _retval = self.base.loopexit(timeout);
-        let _retval = self.base.loop_(0i32);
+        let _retval = self.base.loop_(LoopFlags::empty());
 
         true
     }
@@ -203,7 +207,7 @@ impl Libevent {
     /// Turns the libevent base until next active event.
     // TODO: any way to show if work was done?
     pub fn run_until_event(&self) -> bool {
-        let _retval = self.base.loop_(libevent_sys::EVLOOP_ONCE as i32);
+        let _retval = self.base.loop_(LoopFlags::ONCE);
 
         true
     }
@@ -211,7 +215,7 @@ impl Libevent {
     /// Turns the libevent base until exit.
     // TODO: any way to show if work was done?
     pub fn run(&self) -> bool {
-        let _retval = self.base.loop_(0i32);
+        let _retval = self.base.loop_(LoopFlags::empty());
 
         true
     }
@@ -251,5 +255,13 @@ pub enum ExitReason {
     GotBreak,
     Error,
     NoPendingEvents,
-    Unknown(i32),
+    Unknown{ flags: LoopFlags, exit_code: i32 },
+}
+
+bitflags! {
+    pub struct LoopFlags: u32 {
+        const ONCE = libevent_sys::EVLOOP_ONCE;
+        const NONBLOCK = libevent_sys::EVLOOP_NONBLOCK;
+        const NO_EXIT_ON_EMPTY = libevent_sys::EVLOOP_NO_EXIT_ON_EMPTY;
+    }
 }
