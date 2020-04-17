@@ -17,14 +17,14 @@ extern "C" fn hello_callback(fd: EvutilSocket, event: c_short, ctx: *mut c_void)
 fn main() {
     println!("Hello, world!");
 
-    let libevent = Libevent::new()
+    let mut libevent = Libevent::new()
         .unwrap_or_else(|e| panic!("{:?}", e));
 
     let _ = unsafe { libevent.with_base(|base| {
         ffi::helloc_init(base)
     })};
 
-    let ev = unsafe { libevent.base().event_new(
+    let ev = unsafe { libevent.base_mut().event_new(
         None,
         libevent_sys::EV_PERSIST as c_short,
         hello_callback,

@@ -124,8 +124,7 @@ impl EventBase {
     }
 
     pub fn event_new(
-        //&mut self,
-        & self,
+        &mut self,
         fd: Option<EvutilSocket>,
         flags: c_short,
         callback: EventCallbackFn,
@@ -187,6 +186,10 @@ impl Libevent {
         &self.base
     }
 
+    pub/*(crate)*/ unsafe fn base_mut(&mut self) -> &mut EventBase {
+        &mut self.base
+    }
+
     /// Turns the libevent base once.
     // TODO: any way to show if work was done?
     pub fn turn(&self) -> bool {
@@ -220,12 +223,12 @@ impl Libevent {
         true
     }
 
-    pub fn add_interval<F: FnMut() + 'static>(&self, interval: Duration, cb: F) -> io::Result<EventHandle> {
+    pub fn add_interval<F: FnMut() + 'static>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle> {
         let cb_wrapped = Box::new(EventCallbackWrapper {
             inner: Box::new(cb)
         });
 
-        let ev = unsafe { self.base().event_new(
+        let ev = unsafe { self.base_mut().event_new(
             None,
             libevent_sys::EV_PERSIST as c_short,
             handle_wrapped_callback,
