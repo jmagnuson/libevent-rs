@@ -13,7 +13,7 @@ let mut count: usize = 0;
 
 libevent.add_interval(
     Duration::from_secs(1),
-    move || {
+    move |_flags| {
         count += 1;
         println!("count: {}", count);
     }

@@ -26,22 +26,22 @@ fn main() {
 
     let ev = unsafe { libevent.base_mut().event_new(
         None,
-        libevent_sys::EV_PERSIST as c_short,
+        libevent::EventFlags::PERSIST,
         hello_callback,
         unsafe {std::mem::transmute(std::ptr::null::<c_void>()) },
     ) };
 
     let _ = unsafe {
-        libevent.base().event_add(ev, Duration::from_secs(2))
+        libevent.base().event_add(&ev, Duration::from_secs(2))
     };
 
     let mut a: usize = 0;
 
     let _ev = libevent.add_interval(
         Duration::from_secs(6),
-        move || {
+        move |_flags| {
             a += 1;
-            println!("interval count: {}", a);
+            println!("interval count: {}, flags: {:?}", a, _flags);
         }
     );
 

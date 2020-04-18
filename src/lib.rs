@@ -8,22 +8,24 @@ use libevent_sys;
 
 type EvutilSocket = c_int;
 
-type EventCallbackFn = extern "C" fn(EvutilSocket, c_short, EventCallbackCtx);
+type EventCallbackFn = extern "C" fn(EvutilSocket, EventCallbackFlags, EventCallbackCtx);
 type EventCallbackCtx = *mut c_void;
+type EventCallbackFlags = c_short;
 
 /// Gets used as the boxed context for `EXternCallbackFn`
 struct EventCallbackWrapper {
-    inner: Box<dyn FnMut()>,
+    inner: Box<dyn FnMut(EventFlags)>,
 }
 
-extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, _event: c_short, ctx: EventCallbackCtx) {
+extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: EventCallbackCtx) {
     let cb_ref = unsafe {
         let cb: *mut EventCallbackWrapper = /*std::mem::transmute(*/ ctx as *mut EventCallbackWrapper/*)*/;
         let _cb_ref: &mut EventCallbackWrapper = &mut *cb;
         _cb_ref
     };
 
-    (cb_ref.inner)()
+    let flags = EventFlags::from_bits_truncate(event as u32);
+    (cb_ref.inner)(flags)
 }
 
 
@@ -127,7 +129,7 @@ impl EventBase {
     pub fn event_new(
         &mut self,
         fd: Option<EvutilSocket>,
-        flags: c_short,
+        flags: EventFlags,
         callback: EventCallbackFn,
         callback_ctx: EventCallbackCtx,
     ) -> EventHandle {
@@ -143,7 +145,7 @@ impl EventBase {
             libevent_sys::event_new(
                 self.as_inner_mut(),
                 fd,
-                flags,
+                flags.bits() as c_short,
                 Some(callback),
                 callback_ctx,
             )
@@ -236,14 +238,14 @@ impl Libevent {
         true
     }
 
-    pub fn add_interval<F: FnMut() + 'static>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle> {
+    pub fn add_interval<F: FnMut(EventFlags) + 'static>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle> {
         let cb_wrapped = Box::new(EventCallbackWrapper {
             inner: Box::new(cb)
         });
 
         let ev = unsafe { self.base_mut().event_new(
             None,
-            libevent_sys::EV_PERSIST as c_short,
+            EventFlags::PERSIST,
             handle_wrapped_callback,
             /*unsafe {*/std::mem::transmute(cb_wrapped) /*}*/,
         ) };
@@ -286,5 +288,18 @@ bitflags! {
         const ONCE = libevent_sys::EVLOOP_ONCE;
         const NONBLOCK = libevent_sys::EVLOOP_NONBLOCK;
         const NO_EXIT_ON_EMPTY = libevent_sys::EVLOOP_NO_EXIT_ON_EMPTY;
+    }
+}
+
+bitflags! {
+    pub struct EventFlags: u32 {
+        const TIMEOUT = libevent_sys::EV_TIMEOUT;
+        const READ = libevent_sys::EV_READ;
+        const WRITE = libevent_sys::EV_WRITE;
+        const SIGNAL = libevent_sys::EV_SIGNAL;
+        const PERSIST = libevent_sys::EV_PERSIST;
+        const ET = libevent_sys::EV_ET;
+        const FINALIZE = libevent_sys::EV_FINALIZE;
+        const CLOSED = libevent_sys::EV_CLOSED;
     }
 }
