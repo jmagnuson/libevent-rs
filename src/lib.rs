@@ -8,16 +8,17 @@ use libevent_sys;
 
 type EvutilSocket = c_int;
 
-type EventCallbackFn = extern "C" fn(EvutilSocket, c_short, *mut c_void);
+type EventCallbackFn = extern "C" fn(EvutilSocket, c_short, EventCallbackCtx);
+type EventCallbackCtx = *mut c_void;
 
 /// Gets used as the boxed context for `EXternCallbackFn`
 struct EventCallbackWrapper {
     inner: Box<dyn FnMut()>,
 }
 
-extern "C" fn handle_wrapped_callback(fd: EvutilSocket, event: c_short, ctx: *mut c_void) {
+extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, _event: c_short, ctx: EventCallbackCtx) {
     let cb_ref = unsafe {
-        let cb: *mut EventCallbackWrapper = std::mem::transmute( ctx );
+        let cb: *mut EventCallbackWrapper = /*std::mem::transmute(*/ ctx as *mut EventCallbackWrapper/*)*/;
         let _cb_ref: &mut EventCallbackWrapper = &mut *cb;
         _cb_ref
     };
@@ -128,8 +129,8 @@ impl EventBase {
         fd: Option<EvutilSocket>,
         flags: c_short,
         callback: EventCallbackFn,
-        callback_ctx: *mut c_void,
-    ) -> *mut libevent_sys::event {
+        callback_ctx: EventCallbackCtx,
+    ) -> EventHandle {
         let fd: EvutilSocket = if let Some(fd_) = fd {
             // Actual fd
             fd_
@@ -138,7 +139,7 @@ impl EventBase {
             -1
         };
 
-        unsafe {
+        let inner = unsafe {
             libevent_sys::event_new(
                 self.as_inner_mut(),
                 fd,
@@ -146,18 +147,21 @@ impl EventBase {
                 Some(callback),
                 callback_ctx,
             )
-        }
+        };
+
+        EventHandle { inner: Arc::new(EventHandleInner { inner } ) }
     }
 
     pub fn event_add(
         //&mut self,
         & self,
-        event: *mut libevent_sys::event,
+        //event: *mut libevent_sys::event,
+        event: &EventHandle,
         timeout: Duration,
     ) -> c_int {
         let tv = to_timeval(timeout);
         unsafe {
-            libevent_sys::event_add(event, &tv)
+            libevent_sys::event_add(event.inner.inner, &tv)
         }
     }
 }
@@ -173,6 +177,9 @@ impl Libevent {
     }
 
     // TODO: This should be raw_base, and EventBase should prevent having to use raw altogether.
+    /// # Safety
+    /// Exposes the event_base handle, which can be used to make any sort of
+    /// modifications to the event loop without going through proper checks.
     pub unsafe fn with_base<F: Fn(*mut libevent_sys::event_base) -> c_int>(
         &self,
         f: F
@@ -182,10 +189,16 @@ impl Libevent {
         f(self.base.as_inner_mut())
     }
 
+    /// # Safety
+    /// Exposes the event_base handle, which can be used to make any sort of
+    /// modifications to the event loop without going through proper checks.
     pub/*(crate)*/ unsafe fn base(&self) -> &EventBase {
         &self.base
     }
 
+    /// # Safety
+    /// Exposes the event_base handle, which can be used to make any sort of
+    /// modifications to the event loop without going through proper checks.
     pub/*(crate)*/ unsafe fn base_mut(&mut self) -> &mut EventBase {
         &mut self.base
     }
@@ -232,22 +245,29 @@ impl Libevent {
             None,
             libevent_sys::EV_PERSIST as c_short,
             handle_wrapped_callback,
-            unsafe {std::mem::transmute(cb_wrapped) },
+            /*unsafe {*/std::mem::transmute(cb_wrapped) /*}*/,
         ) };
 
         let _ = unsafe {
-            self.base().event_add(ev, interval)
+            self.base().event_add(&ev, interval)
         };
 
-        Ok(EventHandle { inner: ev })
+        Ok(ev)
     }
 }
 
+use std::sync::Arc;
+
 pub struct EventHandle {
+    inner: Arc<EventHandleInner>,
+}
+
+pub struct EventHandleInner {
     inner: *mut libevent_sys::event,
 }
 
-impl Drop for EventHandle {
+// This okay, AS LONG AS `EventHandle` isn't Clone...
+impl Drop for EventHandleInner {
     fn drop(&mut self) {
         unsafe { libevent_sys::event_free(self.inner) }
     }
