@@ -1,16 +1,12 @@
 
 use std::time::Duration;
 use libevent::Libevent;
-use libevent_sys;
 
 pub mod ffi;
 
-use std::os::raw::{c_int, c_short, c_void};
+use libevent::{EvutilSocket, EventCallbackFlags, EventCallbackCtx};
 
-type EvutilSocket = c_int;
-type EventCallbackFn = extern "C" fn(EvutilSocket, c_short, *mut c_void);
-
-extern "C" fn hello_callback(fd: EvutilSocket, event: c_short, ctx: *mut c_void) {
+extern "C" fn hello_callback(_fd: EvutilSocket, _event: EventCallbackFlags, _ctx: EventCallbackCtx) {
     println!("Rust callback says hello");
 }
 
@@ -28,7 +24,7 @@ fn main() {
         None,
         libevent::EventFlags::PERSIST,
         hello_callback,
-        unsafe {std::mem::transmute(std::ptr::null::<c_void>()) },
+        None,
     ) };
 
     let _ = unsafe {

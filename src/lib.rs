@@ -1,8 +1,7 @@
 #![allow(dead_code)]
 
-use bitflags::bitflags;
 use std::io;
-use std::os::raw::{c_int, c_short, c_void};
+use std::os::raw::{c_int, c_short};
 use std::time::Duration;
 use libevent_sys;
 
@@ -104,7 +103,7 @@ impl Libevent {
             None,
             EventFlags::PERSIST,
             handle_wrapped_callback,
-            /*unsafe {*/std::mem::transmute(cb_wrapped) /*}*/,
+            Some(std::mem::transmute(cb_wrapped)),
         ) };
 
         let _ = unsafe {

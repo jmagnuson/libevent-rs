@@ -117,7 +117,7 @@ impl EventBase {
         fd: Option<EvutilSocket>,
         flags: EventFlags,
         callback: EventCallbackFn,
-        callback_ctx: EventCallbackCtx,
+        callback_ctx: Option<EventCallbackCtx>,
     ) -> EventHandle {
         let fd: EvutilSocket = if let Some(fd_) = fd {
             // Actual fd
@@ -125,6 +125,12 @@ impl EventBase {
         } else {
             // Timer
             -1
+        };
+
+        let callback_ctx = if let Some(_ctx) = callback_ctx {
+            _ctx
+        } else {
+            std::ptr::null::<c_void>() as *mut std::ffi::c_void
         };
 
         let inner = unsafe {
