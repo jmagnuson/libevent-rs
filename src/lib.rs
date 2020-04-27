@@ -8,6 +8,9 @@ use libevent_sys;
 mod event;
 pub use event::*;
 
+mod time;
+pub use time::*;
+
 /// Gets used as the boxed context for `EXternCallbackFn`
 struct EventCallbackWrapper {
     inner: Box<dyn FnMut(EventFlags)>,

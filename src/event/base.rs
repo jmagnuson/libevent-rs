@@ -6,6 +6,8 @@ use std::os::raw::{c_int, c_short, c_void};
 use std::time::Duration;
 use libevent_sys;
 
+use crate::to_timeval;
+
 use super::event::*;
 use std::sync::Arc;
 
@@ -14,24 +16,6 @@ pub type EvutilSocket = c_int;
 pub type EventCallbackFn = extern "C" fn(EvutilSocket, EventCallbackFlags, EventCallbackCtx);
 pub type EventCallbackCtx = *mut c_void;
 pub type EventCallbackFlags = c_short;
-
-fn to_timeval(duration: Duration) -> libevent_sys::timeval {
-    #[cfg(any(target_os = "linux", target_os = "android", target_os = "solaris"))]
-        let tv = libevent_sys::timeval {
-        tv_sec: duration.as_secs() as libevent_sys::__time_t,
-        tv_usec: duration.subsec_micros() as libevent_sys::__suseconds_t,
-    };
-
-    #[cfg(any(target_os = "bitrig", target_os = "dragonfly",
-    target_os = "freebsd", target_os = "ios", target_os = "macos",
-    target_os = "netbsd", target_os = "openbsd"))]
-        let tv = libevent_sys::timeval {
-        tv_sec: duration.as_secs() as libevent_sys::time_t,
-        tv_usec: duration.subsec_micros() as libevent_sys::suseconds_t,
-    };
-
-    tv
-}
 
 pub struct EventBase {
     base: *mut libevent_sys::event_base
