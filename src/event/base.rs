@@ -21,9 +21,6 @@ pub struct EventBase {
     base: *mut libevent_sys::event_base
 }
 
-unsafe impl Send for EventBase {}
-unsafe impl Sync for EventBase {}
-
 /// The handle that abstracts over libevent's API in Rust.
 impl EventBase {
     pub fn new() -> Result<Self, io::Error> {
