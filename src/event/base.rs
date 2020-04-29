@@ -44,7 +44,7 @@ impl EventBase {
         self.base as *const libevent_sys::event_base
     }
 
-    pub fn as_inner_mut(&self) -> *mut libevent_sys::event_base {
+    pub fn as_inner_mut(&mut self) -> *mut libevent_sys::event_base {
         self.base
     }
 

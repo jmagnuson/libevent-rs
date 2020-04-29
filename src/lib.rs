@@ -42,7 +42,7 @@ impl Libevent {
     /// Exposes the event_base handle, which can be used to make any sort of
     /// modifications to the event loop without going through proper checks.
     pub unsafe fn with_base<F: Fn(*mut libevent_sys::event_base) -> c_int>(
-        &self,
+        &mut self,
         f: F
     ) -> c_int
         where
@@ -66,35 +66,30 @@ impl Libevent {
 
     /// Turns the libevent base once.
     // TODO: any way to show if work was done?
-    pub fn turn(&self) -> bool {
-        let _retval = self.base.loop_(LoopFlags::NONBLOCK);
-
-        true
+    pub fn turn(&self) -> ExitReason {
+        self.base.loop_(LoopFlags::NONBLOCK)
     }
 
     /// Turns the libevent base until exit or timeout duration reached.
     // TODO: any way to show if work was done?
-    pub fn run_timeout(&self, timeout: Duration) -> bool {
-        let _retval = self.base.loopexit(timeout);
-        let _retval = self.base.loop_(LoopFlags::empty());
-
-        true
+    pub fn run_timeout(&self, timeout: Duration) -> ExitReason {
+        if self.base.loopexit(timeout) != 0 {
+            // TODO: This conflates errors, is it ok?
+            return ExitReason::Error;
+        };
+        self.base.loop_(LoopFlags::empty())
     }
 
     /// Turns the libevent base until next active event.
     // TODO: any way to show if work was done?
-    pub fn run_until_event(&self) -> bool {
-        let _retval = self.base.loop_(LoopFlags::ONCE);
-
-        true
+    pub fn run_until_event(&self) -> ExitReason {
+        self.base.loop_(LoopFlags::ONCE)
     }
 
     /// Turns the libevent base until exit.
     // TODO: any way to show if work was done?
-    pub fn run(&self) -> bool {
-        let _retval = self.base.loop_(LoopFlags::empty());
-
-        true
+    pub fn run(&self) -> ExitReason {
+        self.base.loop_(LoopFlags::empty())
     }
 
     pub fn add_interval<F: FnMut(EventFlags) + 'static>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle> {
