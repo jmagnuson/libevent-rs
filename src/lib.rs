@@ -13,7 +13,8 @@ pub use time::*;
 
 /// Gets used as the boxed context for `EXternCallbackFn`
 struct EventCallbackWrapper {
-    inner: Box<dyn FnMut(EventFlags)>,
+    inner: Box<dyn FnMut(EventHandleInner, EventFlags)>,
+    ev: *mut libevent_sys::event,
 }
 
 extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: EventCallbackCtx) {
@@ -24,7 +25,8 @@ extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: Ev
     };
 
     let flags = EventFlags::from_bits_truncate(event as u32);
-    (cb_ref.inner)(flags)
+    let event_handle = EventHandleInner { inner: cb_ref.ev };
+    (cb_ref.inner)(event_handle, flags)
 }
 
 pub struct Libevent {
@@ -92,22 +94,52 @@ impl Libevent {
         self.base.loop_(LoopFlags::empty())
     }
 
-    pub fn add_interval<F: FnMut(EventFlags) + 'static>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle> {
-        let cb_wrapped = Box::new(EventCallbackWrapper {
-            inner: Box::new(cb)
+    fn add_timer<F>(&mut self, tv: Duration, cb: F, flags: EventFlags) -> io::Result<EventHandle>
+        where
+            F: FnMut(EventHandleInner, EventFlags) + 'static
+    {
+        let mut ev = unsafe { self.base_mut().event_new(
+            None,
+            flags,
+            handle_wrapped_callback,
+            None,
+        ) };
+
+        let mut cb_wrapped = Box::new(EventCallbackWrapper {
+            inner: Box::new(cb),
+            ev: ev.inner.inner,
         });
 
-        let ev = unsafe { self.base_mut().event_new(
+        // libevent does similar shenanigans for `event_self_cbarg`, but we
+        // need to use the context for both ev handle as well as the closure.
+        // Thus, we first malloc'ed ev with mostly-bs values in `event_new`,
+        // but set things for realsies in `event_assign` now that ev is set.
+        let _ = unsafe { self.base_mut().event_assign(
+            &mut ev,
             None,
-            EventFlags::PERSIST,
+            flags,
             handle_wrapped_callback,
             Some(std::mem::transmute(cb_wrapped)),
         ) };
 
         let _ = unsafe {
-            self.base().event_add(&ev, interval)
+            self.base().event_add(&ev, tv)
         };
 
         Ok(ev)
+    }
+
+    pub fn add_interval<F>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle>
+    where
+        F: FnMut(EventHandleInner, EventFlags) + 'static
+    {
+        self.add_timer(interval, cb, EventFlags::PERSIST)
+    }
+
+    pub fn add_oneshot<F>(&mut self, timeout: Duration, cb: F) -> io::Result<EventHandle>
+    where
+        F: FnMut(EventHandleInner, EventFlags) + 'static
+    {
+        self.add_timer(timeout, cb, EventFlags::empty())
     }
 }

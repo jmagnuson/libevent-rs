@@ -35,7 +35,7 @@ fn main() {
 
     let _ev = libevent.add_interval(
         Duration::from_secs(6),
-        move |_flags| {
+        move |_ev, _flags| {
             a += 1;
             println!("interval count: {}, flags: {:?}", a, _flags);
         }

@@ -127,6 +127,40 @@ impl EventBase {
         EventHandle { inner: Arc::new(EventHandleInner { inner } ) }
     }
 
+    pub fn event_assign(
+        &mut self,
+        ev: &mut EventHandle,
+        fd: Option<EvutilSocket>,
+        flags: EventFlags,
+        callback: EventCallbackFn,
+        callback_ctx: Option<EventCallbackCtx>,
+    ) -> c_int {
+        let fd: EvutilSocket = if let Some(fd_) = fd {
+            // Actual fd
+            fd_
+        } else {
+            // Timer
+            -1
+        };
+
+        let callback_ctx = if let Some(_ctx) = callback_ctx {
+            _ctx
+        } else {
+            std::ptr::null::<c_void>() as *mut std::ffi::c_void
+        };
+
+        unsafe {
+            libevent_sys::event_assign(
+                ev.inner.inner,
+                self.as_inner_mut(),
+                fd,
+                flags.bits() as c_short,
+                Some(callback),
+                callback_ctx,
+            )
+        }
+    }
+
     pub fn event_add(
         //&mut self,
         & self,
