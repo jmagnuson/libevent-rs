@@ -14,7 +14,7 @@ members = ['examples/hello']
 
 [dependencies]
 bitflags = "1.2"
-libevent-sys = "0.2"
+libevent-sys = { version = "0.2", path = "libevent-sys" }
 
 [build-dependencies]
 cmake = "0.1"

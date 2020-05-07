@@ -6,13 +6,14 @@ use pkg_config;
 
 fn main() {
     // Use pkg-config to find and link libevent
-    pkg_config::Config::new()
+    let pkg = pkg_config::Config::new()
         .atleast_version("2")
         .statik(cfg!(feature = "static"))
         .probe("libevent")
         .unwrap();
 
     let bindings = bindgen::Builder::default()
+        .clang_arg(format!("-I{}", pkg.include_paths.get(0).unwrap().display()))
         .header("wrapper.h")
         // Enable for more readable bindings
         // .rustfmt_bindings(true)
