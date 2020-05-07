@@ -84,7 +84,13 @@ impl Libevent {
 
     /// Turns the libevent base until next active event.
     // TODO: any way to show if work was done?
-    pub fn run_until_event(&self) -> ExitReason {
+    pub fn run_until_event(&self, timeout: Option<Duration>) -> ExitReason {
+        if let Some(timeout) = timeout {
+            if self.base.loopexit(timeout) != 0 {
+                // TODO: This conflates errors, is it ok?
+                return ExitReason::Error;
+            }
+        }
         self.base.loop_(LoopFlags::ONCE)
     }
 
