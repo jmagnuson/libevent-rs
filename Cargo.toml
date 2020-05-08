@@ -12,6 +12,11 @@ members = ['examples/hello']
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = [ "libevent-sys/static" ]
+static = []
+bundled = [ "libevent-sys/bundled" ]
+
 [dependencies]
 bitflags = "1.2"
 libevent-sys = { version = "0.2", path = "libevent-sys" }
