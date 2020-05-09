@@ -80,6 +80,9 @@ fn find_libevent() -> Option<Vec<String>> {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=libevent");
+    println!("cargo:rerun-if-changed=wrapper.h");
 
     let _include_paths = find_libevent()
         .expect("No include paths for libevent found");
