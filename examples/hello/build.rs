@@ -1,10 +1,11 @@
-use cmake;
+use cmake::Config as CmakeConfig;
+use std::env;
 
 fn main() {
-    let libevent_sys_include = std::env::var("DEP_EVENT_INCLUDE")
+    let libevent_sys_include = env::var("DEP_EVENT_INCLUDE")
         .expect("DEP_EVENT_INCLUDE not found");
 
-    let dst = cmake::Config::new(".")
+    let dst = CmakeConfig::new(".")
         .cflag(format!("-I{}", libevent_sys_include))
         .very_verbose(true)
         .build();

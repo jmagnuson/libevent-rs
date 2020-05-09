@@ -5,9 +5,16 @@ authors = ["Jon Magnuson <jon.magnuson@gmail.com>"]
 edition = "2018"
 build="build.rs"
 
-[dependencies]
-libevent-sys = { path = "../../libevent-sys", features = [ "bundled" ] }
-libevent = { path = "../../", features = [ "bundled" ] }
+[features]
+default = ["bundled"]
+bundled = ["libevent/bundled",  "libevent-sys/bundled"]
+
+[dependencies.libevent]
+path = "../../"
+
+# Needed to access headers, and create an FFI from C->Rust.
+[dependencies.libevent-sys]
+path = "../../libevent-sys"
 
 [build-dependencies]
 cmake = "0.1"
