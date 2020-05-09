@@ -18,16 +18,14 @@ fn build_libevent(libevent_path: &str) -> PathBuf {
         //.very_verbose(true)
         .build();
 
-    //println!("cargo:rustc-link-search=native={}/lib", dst.display());
     println!("cargo:rustc-link-search={}/lib", dst.display());
     println!("cargo:rustc-link-lib=static=event");
+    //println!("cargo:rustc-link-lib=static=libevent_core");
+    //println!("cargo:rustc-link-lib=static=libevent_extra");
     // TODO: static feature ^^
 
     // TODO: Do I need/want?
     println!("cargo:include={}/include", dst.display());
-
-    //println!("cargo:rustc-link-lib=static=libevent_core");
-    //println!("cargo:rustc-link-lib=static=libevent_extra");
 
     dst
 }
@@ -79,13 +77,7 @@ fn main() {
     let include_paths = find_libevent()
         .expect("No include paths for libevent found");
 
-    println!("cargo:include_path={}", include_paths.get(0).unwrap());
-
     let mut builder = bindgen::Builder::default();
-
-    /*for path in include_paths {
-        builder = builder.clang_arg(format!("-I{}", path));
-    }*/
 
     let bindings = builder.header("wrapper.h")
         // Enable for more readable bindings
