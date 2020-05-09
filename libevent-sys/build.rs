@@ -4,27 +4,31 @@ use std::path::PathBuf;
 #[cfg(feature = "bundled")]
 fn build_libevent(libevent_path: &str) -> PathBuf {
     let dst = cmake::Config::new(libevent_path)
-        //.define("CMAKE_POLICY_DEFAULT_CMP0056", "NEW")
-        //.define("CMAKE_POLICY_DEFAULT_CMP0066", "NEW")
-        //.define("CMAKE_SUPPRESS_DEVELOPER_WARNINGS", "1")
+        // TODO: feature `pthreads`
         .define("EVENT__DISABLE_THREAD_SUPPORT", "ON")
+        // TODO: feature `openssl`
         .define("EVENT__DISABLE_OPENSSL", "ON")
-        .define("EVENT__DISABLE_THREAD_SUPPORT", "ON")
+        // TODO: feature `static` (or just build "BOTH" here?)
+        .define("EVENT__LIBRARY_TYPE", "STATIC")
         .define("EVENT__DISABLE_BENCHMARK", "ON")
         .define("EVENT__DISABLE_TESTS", "ON")
         .define("EVENT__DISABLE_REGRESS", "ON")
         .define("EVENT__DISABLE_SAMPLES", "ON")
-        .define("EVENT__LIBRARY_TYPE", "STATIC")
         //.very_verbose(true)
         .build();
 
     println!("cargo:rustc-link-search={}/lib", dst.display());
-    println!("cargo:rustc-link-lib=static=event");
-    //println!("cargo:rustc-link-lib=static=libevent_core");
-    //println!("cargo:rustc-link-lib=static=libevent_extra");
+
+    // Library 'event' is considered deprecated, so link each sub-component
+    // individually.
+    println!("cargo:rustc-link-lib=static=event_core");
+    println!("cargo:rustc-link-lib=static=event_extra");
     // TODO: static feature ^^
 
-    // TODO: Do I need/want?
+    // TODO: feature flag for openssl, Send/Sync guarantees for pthreads
+    //println!("cargo:rustc-link-lib=static=event_pthreads");
+    //println!("cargo:rustc-link-lib=static=event_openssl");
+
     println!("cargo:include={}/include", dst.display());
 
     dst
@@ -37,12 +41,15 @@ fn run_pkg_config() -> Option<Vec<String>> {
         .atleast_version("2")
         .statik(cfg!(feature = "static"));
 
-    let mut lib = match pkg.probe("libevent") {
+    let mut lib = match pkg.probe("libevent_core") {
         Ok(lib) => lib,
         Err(_e) => { return None; }
     };
+    // TODO: Probably combine all pc includes, just to be safe.
 
-    pkg.cargo_metadata(true).probe("libevent").unwrap();
+    pkg.cargo_metadata(true).probe("libevent_core").unwrap();
+    pkg.cargo_metadata(true).probe("libevent_extra").unwrap();
+    // TODO: pthreads, openssl
 
     let include_paths = lib.include_paths.drain(..).map(|path| {
         let path_s = path.to_str().unwrap().to_string();
@@ -74,12 +81,11 @@ fn find_libevent() -> Option<Vec<String>> {
 
 fn main() {
 
-    let include_paths = find_libevent()
+    let _include_paths = find_libevent()
         .expect("No include paths for libevent found");
 
-    let mut builder = bindgen::Builder::default();
-
-    let bindings = builder.header("wrapper.h")
+    let bindings = bindgen::Builder::default()
+        .header("wrapper.h")
         // Enable for more readable bindings
         // .rustfmt_bindings(true)
         // Fixes a bug with a duplicated const
