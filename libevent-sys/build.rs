@@ -4,9 +4,9 @@ use std::path::PathBuf;
 #[cfg(feature = "bundled")]
 fn build_libevent(libevent_path: &str) -> PathBuf {
     let dst = cmake::Config::new(libevent_path)
-        .define("CMAKE_POLICY_DEFAULT_CMP0056", "NEW")
-        .define("CMAKE_POLICY_DEFAULT_CMP0066", "NEW")
-        .define("CMAKE_SUPPRESS_DEVELOPER_WARNINGS", "1")
+        //.define("CMAKE_POLICY_DEFAULT_CMP0056", "NEW")
+        //.define("CMAKE_POLICY_DEFAULT_CMP0066", "NEW")
+        //.define("CMAKE_SUPPRESS_DEVELOPER_WARNINGS", "1")
         .define("EVENT__DISABLE_THREAD_SUPPORT", "ON")
         .define("EVENT__DISABLE_OPENSSL", "ON")
         .define("EVENT__DISABLE_THREAD_SUPPORT", "ON")
