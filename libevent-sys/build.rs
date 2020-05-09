@@ -79,6 +79,8 @@ fn main() {
     let include_paths = find_libevent()
         .expect("No include paths for libevent found");
 
+    println!("cargo:include_path={}", include_paths.get(0).unwrap());
+
     let mut builder = bindgen::Builder::default();
 
     /*for path in include_paths {
