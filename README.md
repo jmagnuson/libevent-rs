@@ -14,7 +14,8 @@ libevent = "0.1"
 ### Sysem Requirements
 
 * `libclang` is required by [bindgen] which is used to generate the Rust
-  bindings. See [bindgen requirements] for more information.
+  bindings. See [bindgen requirements] for more information. Also ensure that
+  `LIBCLANG_PATH` is set, as some systems do not do so by default.
 
 * `cmake` if self-building via the `bundled` feature.
 
