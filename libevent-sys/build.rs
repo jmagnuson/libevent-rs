@@ -14,7 +14,7 @@ fn build_libevent(libevent_path: &str) -> PathBuf {
         .define("EVENT__DISABLE_TESTS", "ON")
         .define("EVENT__DISABLE_REGRESS", "ON")
         .define("EVENT__DISABLE_SAMPLES", "ON")
-        .define("EVENT_LIBRARY_STATIC", "ON")
+        .define("EVENT__LIBRARY_TYPE", "STATIC")
         //.very_verbose(true)
         .build();
 
