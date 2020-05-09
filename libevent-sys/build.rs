@@ -57,6 +57,16 @@ fn run_pkg_config() -> Option<Vec<String>> {
 
 #[cfg(feature = "bundled")]
 fn find_libevent() -> Option<Vec<String>> {
+    use std::path::Path;
+    use std::process::Command;
+
+    if !Path::new("libevent/.git").exists() {
+        dbg!(Command::new("git").args(&["submodule", "update", "--init"])
+            .status().expect("Running `git submodule init` failed."));
+    } else {
+        dbg!(Command::new("git").args(&["submodule", "update", "--recursive"])
+            .status().expect("Running `git submodule update` failed."));
+    }
     Some(vec![format!("{}/include", build_libevent("libevent").display())])
 }
 #[cfg(not(feature = "bundled"))]
@@ -71,9 +81,9 @@ fn main() {
 
     let mut builder = bindgen::Builder::default();
 
-    for path in include_paths {
+    /*for path in include_paths {
         builder = builder.clang_arg(format!("-I{}", path));
-    }
+    }*/
 
     let bindings = builder.header("wrapper.h")
         // Enable for more readable bindings
