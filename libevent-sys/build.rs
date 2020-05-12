@@ -11,6 +11,29 @@ fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
         config.define("EVENT__DISABLE_THREAD_SUPPORT", "OFF");
     }
 
+    if cfg!(feature = "openssl") || cfg!(feature = "openssl_bundled") {
+        config.define("EVENT__DISABLE_OPENSSL", "OFF");
+
+        if cfg!(feature = "openssl_bundled") {
+
+            if !cfg!(feature = "threading") {
+                unimplemented!("feature `openssl_bundled` without feature `threading` \
+                    not currently supported as `CMAKE_USE_PTHREADS_INIT` gets injected \
+                    into libevent cmake build, causing build failures");
+            }
+
+            println!("cargo:rustc-link-lib=static=ssl");
+            println!("cargo:rustc-link-lib=static=crypto");
+        } else {
+            println!("cargo:rustc-link-lib=ssl");
+            println!("cargo:rustc-link-lib=crypto");
+        }
+
+        config.register_dep("openssl");
+    } else {
+        config.define("EVENT__DISABLE_OPENSSL", "ON");
+    }
+
     // TODO: Or just both and decide elsewhere?
     if cfg!(feature = "static") {
         config.define("EVENT__LIBRARY_TYPE", "STATIC");
@@ -44,6 +67,10 @@ fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
     println!("cargo:rustc-link-lib=static=event_core");
     println!("cargo:rustc-link-lib=static=event_extra");
 
+    if cfg!(feature = "openssl") || cfg!(feature = "openssl_bundled") {
+        println!("cargo:rustc-link-lib=static=event_openssl");
+    }
+
     if cfg!(feature = "threading") {
         println!("cargo:rustc-link-lib=static=event_pthreads");
     }
@@ -72,6 +99,11 @@ fn run_pkg_config() -> Option<Vec<String>> {
 
     {
         let mut lib = pkg.probe("libevent_extra").unwrap();
+        include_paths.extend(lib.include_paths.drain(..));
+    }
+
+    if cfg!(feature = "openssl") {
+        let mut lib = pkg.cargo_metadata(true).probe("libevent_openssl").unwrap();
         include_paths.extend(lib.include_paths.drain(..));
     }
 

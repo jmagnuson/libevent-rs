@@ -15,13 +15,19 @@ links = "event"
 build = "build.rs"
 
 [features]
-default = [ "pkg-config", "threading" ]
+default = [ "pkg-config", "openssl", "threading" ]
 static = []
 bundled = [ "static", "cmake" ]
+openssl = [ "openssl-sys" ]
+openssl_bundled = [ "openssl-sys/vendored", "threading" ]
 threading = []
 
 # features for development
 verbose_build = []
+
+[dependencies.openssl-sys]
+version = "0.9"
+optional = true
 
 [build-dependencies]
 bindgen = "0.53"
