@@ -8,9 +8,10 @@ license = "MIT/Apache-2.0"
 edition = "2018"
 
 [features]
-default = []
+default = [ "threading" ]
 static = [ "libevent-sys/static" ]
 bundled = [ "static", "libevent-sys/bundled" ]
+threading = [ "libevent-sys/threading" ]
 
 [dependencies]
 libevent-sys = { version = "0.2", path = "libevent-sys" }

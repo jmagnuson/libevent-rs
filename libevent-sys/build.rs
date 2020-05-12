@@ -5,6 +5,12 @@ use std::path::PathBuf;
 fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
     let mut config = cmake::Config::new(libevent_path);
 
+    if !cfg!(feature = "threading") {
+        config.define("EVENT__DISABLE_THREAD_SUPPORT", "ON");
+    } else {
+        config.define("EVENT__DISABLE_THREAD_SUPPORT", "OFF");
+    }
+
     // TODO: Or just both and decide elsewhere?
     if cfg!(feature = "static") {
         config.define("EVENT__LIBRARY_TYPE", "STATIC");
@@ -38,6 +44,10 @@ fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
     println!("cargo:rustc-link-lib=static=event_core");
     println!("cargo:rustc-link-lib=static=event_extra");
 
+    if cfg!(feature = "threading") {
+        println!("cargo:rustc-link-lib=static=event_pthreads");
+    }
+
     println!("cargo:include={}/include", dst.display());
 
     dst
@@ -62,6 +72,11 @@ fn run_pkg_config() -> Option<Vec<String>> {
 
     {
         let mut lib = pkg.probe("libevent_extra").unwrap();
+        include_paths.extend(lib.include_paths.drain(..));
+    }
+
+    if cfg!(feature = "threading") {
+        let mut lib = pkg.cargo_metadata(true).probe("libevent_pthreads").unwrap();
         include_paths.extend(lib.include_paths.drain(..));
     }
 

@@ -15,9 +15,10 @@ links = "event"
 build = "build.rs"
 
 [features]
-default = [ "pkg-config" ]
+default = [ "pkg-config", "threading" ]
 static = []
 bundled = [ "static", "cmake" ]
+threading = []
 
 # features for development
 verbose_build = []
