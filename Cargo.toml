@@ -7,4 +7,10 @@ repository = "https://github.com/jmagnuson/libevent-rs"
 license = "MIT/Apache-2.0"
 edition = "2018"
 
+[features]
+default = []
+static = [ "libevent-sys/static" ]
+bundled = [ "static", "libevent-sys/bundled" ]
+
 [dependencies]
+libevent-sys = { version = "0.2", path = "libevent-sys" }
