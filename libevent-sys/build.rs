@@ -24,6 +24,11 @@ fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
             .define("CMAKE_POLICY_DEFAULT_CMP0066", "NEW")*/
     }
 
+    // TODO: Can we tap into "-vv" cargo argument?
+    if cfg!(feature = "verbose_build") {
+        config.very_verbose(true);
+    }
+
     let dst = config.build();
 
     println!("cargo:rustc-link-search={}/lib", dst.display());
@@ -95,6 +100,14 @@ fn main() {
 
     let target = env::var("TARGET").unwrap();
     let host = env::var("HOST").unwrap();
+
+    if cfg!(feature = "verbose_build") {
+        for (key, val) in env::vars() {
+            println!("{}: {}", key, val);
+        }
+        let args: Vec<String> = env::args().collect();
+        println!("args: {:?}", args);
+    }
 
     let include_paths = find_libevent()
         .expect("No include paths for libevent found");
