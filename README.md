@@ -4,7 +4,7 @@ Rust bindings to the [libevent] async I/O framework.
 
 Check out the [hacking] branch for now.
 
-### Sysem Requirements
+### System Requirements
 
 * `libclang` is required by [bindgen] which is used to generate the Rust
   bindings. See [bindgen requirements] for more information. Also ensure that
