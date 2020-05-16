@@ -15,8 +15,9 @@ links = "event"
 build = "build.rs"
 
 [features]
-default = [ "pkg-config", "openssl", "threading" ]
+default = [ "pkgconfig", "openssl", "threading" ]
 static = []
+pkgconfig = [ "pkg-config" ]
 bundled = [ "static", "cmake" ]
 openssl = [ "openssl-sys" ]
 openssl_bundled = [ "openssl-sys/vendored", "threading" ]

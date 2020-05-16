@@ -8,12 +8,13 @@ license = "MIT/Apache-2.0"
 edition = "2018"
 
 [features]
-default = [ "openssl", "threading" ]
+default = [ "pkgconfig", "openssl", "threading" ]
 static = [ "libevent-sys/static" ]
+pkgconfig = [ "libevent-sys/pkgconfig" ]
 bundled = [ "static", "libevent-sys/bundled" ]
 openssl = [ "libevent-sys/openssl" ]
 openssl_bundled = [ "libevent-sys/openssl_bundled", "threading" ]
 threading = [ "libevent-sys/threading" ]
 
 [dependencies]
-libevent-sys = { version = "0.2", path = "libevent-sys" }
+libevent-sys = { version = "0.2", path = "libevent-sys", default-features = false }
