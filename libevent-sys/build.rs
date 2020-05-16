@@ -162,8 +162,8 @@ fn main() {
     let mut builder = bindgen::Builder::default();
 
     if target != host {
-        builder = builder.clang_arg("-target");
-        builder = builder.clang_arg(target);
+        // TODO: Is it necessary to specify target in clang_arg?
+        // Ref: https://github.com/rust-lang/rust-bindgen/issues/1780
     }
 
     // Let bindgen know about all include paths that were found.
