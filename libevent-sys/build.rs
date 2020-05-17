@@ -161,6 +161,10 @@ fn main() {
 
     let mut builder = bindgen::Builder::default();
 
+    if cfg!(feature = "verbose_build") {
+        builder = builder.clang_arg("-v");
+    }
+
     if target != host {
         // TODO: Is it necessary to specify target in clang_arg?
         // Ref: https://github.com/rust-lang/rust-bindgen/issues/1780
