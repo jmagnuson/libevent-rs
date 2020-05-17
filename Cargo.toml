@@ -16,5 +16,9 @@ openssl = [ "libevent-sys/openssl" ]
 openssl_bundled = [ "libevent-sys/openssl_bundled", "threading" ]
 threading = [ "libevent-sys/threading" ]
 
+# features for development
+verbose_build = [ "libevent-sys/verbose_build" ]
+
+
 [dependencies]
 libevent-sys = { version = "0.2", path = "libevent-sys", default-features = false }
