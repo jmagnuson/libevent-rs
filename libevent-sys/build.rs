@@ -30,6 +30,18 @@ fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
         }
 
         config.register_dep("openssl");
+
+        let openssl_root = if let Ok(root) = env::var("DEP_OPENSSL_ROOT") {
+            root
+        } else {
+            let include_str = env::var("DEP_OPENSSL_INCLUDE").unwrap();
+            let include_dir = std::path::Path::new(&include_str);
+            let root_dir = format!("{}", include_dir.parent().unwrap().display());
+            env::set_var("DEP_OPENSSL_ROOT", &root_dir);
+            root_dir
+        };
+
+        config.define("OPENSSL_ROOT_DIR", openssl_root);
     } else {
         config.define("EVENT__DISABLE_OPENSSL", "ON");
     }
