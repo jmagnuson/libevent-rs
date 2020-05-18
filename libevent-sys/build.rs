@@ -30,6 +30,18 @@ fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
         }
 
         config.register_dep("openssl");
+
+        let openssl_root = if let Ok(root) = env::var("DEP_OPENSSL_ROOT") {
+            root
+        } else {
+            let include_str = env::var("DEP_OPENSSL_INCLUDE").unwrap();
+            let include_dir = std::path::Path::new(&include_str);
+            let root_dir = format!("{}", include_dir.parent().unwrap().display());
+            env::set_var("DEP_OPENSSL_ROOT", &root_dir);
+            root_dir
+        };
+
+        config.define("OPENSSL_ROOT_DIR", openssl_root);
     } else {
         config.define("EVENT__DISABLE_OPENSSL", "ON");
     }
@@ -161,9 +173,13 @@ fn main() {
 
     let mut builder = bindgen::Builder::default();
 
+    if cfg!(feature = "verbose_build") {
+        builder = builder.clang_arg("-v");
+    }
+
     if target != host {
-        builder = builder.clang_arg("-target");
-        builder = builder.clang_arg(target);
+        // TODO: Is it necessary to specify target in clang_arg?
+        // Ref: https://github.com/rust-lang/rust-bindgen/issues/1780
     }
 
     // Let bindgen know about all include paths that were found.
