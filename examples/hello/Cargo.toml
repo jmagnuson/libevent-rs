@@ -1,0 +1,21 @@
+[package]
+name = "hello"
+version = "0.1.0"
+authors = ["Jon Magnuson <jon.magnuson@gmail.com>"]
+edition = "2018"
+build="build.rs"
+
+[features]
+default = [ "bundled", "libevent/openssl" ]
+bundled = ["libevent/bundled",  "libevent-sys/bundled" ]
+openssl_bundled = [ "libevent/openssl_bundled" ]
+
+[dependencies.libevent]
+path = "../../"
+
+# Needed to access headers, and create an FFI from C->Rust.
+[dependencies.libevent-sys]
+path = "../../libevent-sys"
+
+[build-dependencies]
+cmake = "0.1"

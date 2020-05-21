@@ -7,6 +7,9 @@ repository = "https://github.com/jmagnuson/libevent-rs"
 license = "MIT/Apache-2.0"
 edition = "2018"
 
+[workspace]
+members = ['examples/hello']
+
 [features]
 default = [ "pkgconfig", "openssl", "threading" ]
 static = [ "libevent-sys/static" ]
@@ -21,4 +24,5 @@ verbose_build = [ "libevent-sys/verbose_build" ]
 
 
 [dependencies]
+bitflags = "1.2"
 libevent-sys = { version = "0.2", path = "libevent-sys", default-features = false }

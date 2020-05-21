@@ -2,7 +2,25 @@
 
 Rust bindings to the [libevent] async I/O framework.
 
-Check out the [hacking] branch for now.
+## Example
+
+```rust,no_run
+use libevent::Libevent;
+
+let libevent = Libevent::new()?;
+
+let mut count: usize = 0;
+
+libevent.add_interval(
+    Duration::from_secs(1),
+    move |_event, _flags| {
+        count += 1;
+        println!("count: {}", count);
+    }
+)?;
+
+libevent.run();
+```
 
 ### System Requirements
 
