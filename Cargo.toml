@@ -21,4 +21,5 @@ verbose_build = [ "libevent-sys/verbose_build" ]
 
 
 [dependencies]
+bitflags = "1.2"
 libevent-sys = { version = "0.2", path = "libevent-sys", default-features = false }
