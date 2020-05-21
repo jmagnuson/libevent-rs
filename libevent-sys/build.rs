@@ -15,11 +15,12 @@ fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
         config.define("EVENT__DISABLE_OPENSSL", "OFF");
 
         if cfg!(feature = "openssl_bundled") {
-
             if !cfg!(feature = "threading") {
-                unimplemented!("feature `openssl_bundled` without feature `threading` \
+                unimplemented!(
+                    "feature `openssl_bundled` without feature `threading` \
                     not currently supported as `CMAKE_USE_PTHREADS_INIT` gets injected \
-                    into libevent cmake build, causing build failures");
+                    into libevent cmake build, causing build failures"
+                );
             }
 
             println!("cargo:rustc-link-lib=static=ssl");
@@ -55,14 +56,15 @@ fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
 
     // Disable unnecessary dev-only features
     {
-        config.define("EVENT__DISABLE_BENCHMARK", "ON")
+        config
+            .define("EVENT__DISABLE_BENCHMARK", "ON")
             .define("EVENT__DISABLE_TESTS", "ON")
             .define("EVENT__DISABLE_REGRESS", "ON")
             .define("EVENT__DISABLE_SAMPLES", "ON");
 
         // TODO: Address policy warnings for cross-compilation?
         /*config.define("CMAKE_POLICY_DEFAULT_CMP0056", "NEW")
-            .define("CMAKE_POLICY_DEFAULT_CMP0066", "NEW")*/
+        .define("CMAKE_POLICY_DEFAULT_CMP0066", "NEW")*/
     }
 
     // TODO: Can we tap into "-vv" cargo argument?
@@ -124,11 +126,14 @@ fn run_pkg_config() -> Option<Vec<String>> {
         include_paths.extend(lib.include_paths.drain(..));
     }
 
-    let include_paths = include_paths.drain().map(|path| {
-        let path_s = path.into_os_string().into_string().unwrap();
-        println!("cargo:include={}", &path_s);
-        path_s
-    }).collect();
+    let include_paths = include_paths
+        .drain()
+        .map(|path| {
+            let path_s = path.into_os_string().into_string().unwrap();
+            println!("cargo:include={}", &path_s);
+            path_s
+        })
+        .collect();
 
     Some(include_paths)
 }
@@ -139,14 +144,21 @@ fn find_libevent() -> Option<Vec<String>> {
     use std::process::Command;
 
     if !Path::new("libevent/.git").exists() {
-        Command::new("git").args(&["submodule", "update", "--init"])
-            .status().expect("Running `git submodule init` failed.");
+        Command::new("git")
+            .args(&["submodule", "update", "--init"])
+            .status()
+            .expect("Running `git submodule init` failed.");
     } else {
-        Command::new("git").args(&["submodule", "update", "--recursive"])
-            .status().expect("Running `git submodule update` failed.");
+        Command::new("git")
+            .args(&["submodule", "update", "--recursive"])
+            .status()
+            .expect("Running `git submodule update` failed.");
     }
 
-    Some(vec![format!("{}/include", build_libevent("libevent").display())])
+    Some(vec![format!(
+        "{}/include",
+        build_libevent("libevent").display()
+    )])
 }
 #[cfg(not(feature = "bundled"))]
 fn find_libevent() -> Option<Vec<String>> {
@@ -168,8 +180,7 @@ fn main() {
         println!("args: {:?}", args);
     }
 
-    let include_paths = find_libevent()
-        .expect("No include paths for libevent found");
+    let include_paths = find_libevent().expect("No include paths for libevent found");
 
     let mut builder = bindgen::Builder::default();
 
