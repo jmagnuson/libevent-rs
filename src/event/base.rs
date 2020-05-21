@@ -4,6 +4,7 @@ use bitflags::bitflags;
 use libevent_sys;
 use std::io;
 use std::os::raw::{c_int, c_short, c_void};
+use std::ptr::NonNull;
 use std::time::Duration;
 
 use super::event::*;
@@ -22,35 +23,35 @@ fn to_timeval(duration: Duration) -> libevent_sys::timeval {
 }
 
 pub struct EventBase {
-    base: *mut libevent_sys::event_base,
+    base: NonNull<libevent_sys::event_base>,
 }
 
 /// The handle that abstracts over libevent's API in Rust.
 impl EventBase {
     pub fn new() -> Result<Self, io::Error> {
         let base = unsafe { libevent_sys::event_base_new() };
-
-        if base.is_null() {
-            return Err(io::Error::new(
+        if let Some(base) = NonNull::new(base) {
+            Ok(EventBase { base })
+        } else {
+            Err(io::Error::new(
                 io::ErrorKind::Other,
                 "Failed to create libevent base",
-            ));
+            ))
         }
-
-        Ok(EventBase { base })
     }
 
     pub fn as_inner(&self) -> *const libevent_sys::event_base {
-        self.base as *const libevent_sys::event_base
+        self.base.as_ptr() as *const libevent_sys::event_base
     }
 
     pub fn as_inner_mut(&mut self) -> *mut libevent_sys::event_base {
-        self.base
+        unsafe { self.base.as_mut() }
     }
 
     pub fn loop_(&self, flags: LoopFlags) -> ExitReason {
-        let exit_code =
-            unsafe { libevent_sys::event_base_loop(self.base, flags.bits() as i32) as i32 };
+        let exit_code = unsafe {
+            libevent_sys::event_base_loop(self.base.as_ptr(), flags.bits() as i32) as i32
+        };
 
         match exit_code {
             0 => {
@@ -58,9 +59,9 @@ impl EventBase {
                     // Technically mutually-exclusive from `got_break`, but
                     // the check in `event_base_loop` comes first, so the logic
                     // here matches.
-                    if libevent_sys::event_base_got_exit(self.base) != 0i32 {
+                    if libevent_sys::event_base_got_exit(self.base.as_ptr()) != 0i32 {
                         ExitReason::GotExit
-                    } else if libevent_sys::event_base_got_break(self.base) != 0i32 {
+                    } else if libevent_sys::event_base_got_break(self.base.as_ptr()) != 0i32 {
                         ExitReason::GotBreak
                     } else {
                         // TODO: This should match flags for `EVLOOP_ONCE`, `_NONBLOCK`, etc.
@@ -78,16 +79,16 @@ impl EventBase {
         let tv = to_timeval(timeout);
         unsafe {
             let tv_cast = &tv as *const libevent_sys::timeval;
-            libevent_sys::event_base_loopexit(self.base, tv_cast) as i32
+            libevent_sys::event_base_loopexit(self.base.as_ptr(), tv_cast) as i32
         }
     }
 
     pub fn loopbreak(&self) -> i32 {
-        unsafe { libevent_sys::event_base_loopbreak(self.base) as i32 }
+        unsafe { libevent_sys::event_base_loopbreak(self.base.as_ptr()) as i32 }
     }
 
     pub fn loopcontinue(&self) -> i32 {
-        unsafe { libevent_sys::event_base_loopcontinue(self.base) as i32 }
+        unsafe { libevent_sys::event_base_loopcontinue(self.base.as_ptr()) as i32 }
     }
 
     pub fn event_new(
@@ -168,6 +169,8 @@ impl EventBase {
         }
     }
 }
+
+unsafe impl Send for EventBase {}
 
 pub enum ExitReason {
     GotExit,
