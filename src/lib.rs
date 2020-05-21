@@ -37,6 +37,11 @@ impl Libevent {
         EventBase::new().map(|base| Libevent { base })
     }
 
+    pub unsafe fn from_raw(base: *mut libevent_sys::event_base) -> Result<Self, io::Error> {
+        let base = EventBase::from_raw(base)?;
+        Ok(Libevent { base })
+    }
+
     // TODO: This should be raw_base, and EventBase should prevent having to use raw altogether.
     /// # Safety
     /// Exposes the event_base handle, which can be used to make any sort of

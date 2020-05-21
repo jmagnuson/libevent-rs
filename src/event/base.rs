@@ -30,6 +30,10 @@ pub struct EventBase {
 impl EventBase {
     pub fn new() -> Result<Self, io::Error> {
         let base = unsafe { libevent_sys::event_base_new() };
+        unsafe { Self::from_raw(base) }
+    }
+
+    pub unsafe fn from_raw(base: *mut libevent_sys::event_base) -> Result<Self, io::Error> {
         if let Some(base) = NonNull::new(base) {
             Ok(EventBase { base })
         } else {
