@@ -33,7 +33,7 @@ fn main() {
             .event_new(None, libevent::EventFlags::PERSIST, hello_callback, None)
     };
 
-    let _ = unsafe { libevent.base().event_add(&ev, Duration::from_secs(2)) };
+    let _ = unsafe { libevent.base().event_add(&ev, Some(Duration::from_secs(2))) };
 
     let mut a: usize = 0;
 
