@@ -144,15 +144,13 @@ fn find_libevent() -> Option<Vec<String>> {
     use std::process::Command;
 
     if !Path::new("libevent/.git").exists() {
-        Command::new("git")
+        let _ = Command::new("git")
             .args(&["submodule", "update", "--init"])
-            .status()
-            .expect("Running `git submodule init` failed.");
+            .status();
     } else {
-        Command::new("git")
+        let _ = Command::new("git")
             .args(&["submodule", "update", "--recursive"])
-            .status()
-            .expect("Running `git submodule update` failed.");
+            .status();
     }
 
     Some(vec![format!(
