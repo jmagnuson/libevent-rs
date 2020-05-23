@@ -3,9 +3,9 @@
 static void timer_cb_temporary(evutil_socket_t fd, short event, void *ptr)
 {
   struct event* ev = (struct event*)ptr;
-  static size_t counter = 0;
+  static size_t counter = 1;
 
-  printf("hi from temporary callback\n");
+  printf("callback: c temp fn (interval: 100ms, count: %d/30)\n", counter);
   if (++counter > 30)
   {
     event_del(ev);
@@ -17,7 +17,7 @@ static void timer_cb_forever(evutil_socket_t fd, short event, void *ptr)
 {
   struct event* ev = (struct event*)ptr;
 
-  printf("hi from forever callback\n");
+  printf("callback: c fn (interval: 1s)\n");
 }
 
 int helloc_init(struct event_base *base)
