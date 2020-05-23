@@ -10,7 +10,7 @@ extern "C" fn hello_callback(
     _event: EventCallbackFlags,
     _ctx: EventCallbackCtx,
 ) {
-    println!("Rust callback says hello");
+    println!("callback: rust fn (interval: 2s)");
 }
 
 fn main() {
@@ -39,7 +39,7 @@ fn main() {
 
     let _ev = libevent.add_interval(Duration::from_secs(6), move |_ev, _flags| {
         a += 1;
-        println!("interval count: {}, flags: {:?}", a, _flags);
+        println!("callback: rust closure (interval: 6s, count: {}, flags: {:?})", a, _flags);
     });
 
     if let Some(duration) = run_duration {
@@ -63,4 +63,6 @@ fn main() {
     // TODO: expose base_free from libevent-rs
     let ret = unsafe { libevent.with_base(|base| ffi::helloc_destroy(base)) };
     assert_eq!(ret, 0);
+
+    println!("Exiting");
 }
