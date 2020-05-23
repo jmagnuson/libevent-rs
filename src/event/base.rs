@@ -166,10 +166,12 @@ impl EventBase {
     pub fn event_add(&self, event: &EventHandle, timeout: Option<Duration>) -> c_int {
         unsafe {
             let p = event.inner.lock().unwrap().inner.unwrap().as_ptr();
-            libevent_sys::event_add(
-                p,
-                timeout.map_or_else(|| std::ptr::null(), |t| &to_timeval(t)),
-            )
+            if let Some(tv) = timeout {
+                libevent_sys::event_add(p, &to_timeval(tv))
+            } else {
+                // null timeout means no timeout to libevent
+                libevent_sys::event_add(p, std::ptr::null())
+            }
         }
     }
 }
