@@ -102,39 +102,8 @@ impl Libevent {
     where
         F: FnMut(&mut EventHandle, EventFlags) + 'static,
     {
-        // First allocate the event with no context, then apply the reference
-        // to the closure (and itself) later on.
-        let mut ev = unsafe {
-            self.base_mut()
-                .event_new(None, flags, handle_wrapped_callback, None)
-        };
-
-        unsafe {
-            // A gross way to signify that we're leaking the boxed
-            // `EventCallbackWrapper` match libevent's context type.
-            // TODO: Use `event_finalize` to de-init boxed closure.
-            ev.inner.lock().unwrap().set_drop_ctx();
-        }
-
-        let cb_wrapped = Box::new(EventCallbackWrapper {
-            inner: Box::new(cb),
-            ev: ev.clone(),
-        });
-
-        // Now we can apply the closure + handle to self.
-        let _ = unsafe {
-            self.base_mut().event_assign(
-                &mut ev,
-                None,
-                flags,
-                handle_wrapped_callback,
-                Some(std::mem::transmute(cb_wrapped)),
-            )
-        };
-
-        let _ = unsafe { self.base().event_add(&ev, Some(tv)) };
-
-        Ok(ev)
+        #[cfg(unix)]
+        self.add_fd(-1 as RawFd, Some(tv), cb, flags)
     }
 
     pub fn add_interval<F>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle>
@@ -152,7 +121,7 @@ impl Libevent {
     }
 
     #[cfg(unix)]
-    pub fn add_fd<F>(&mut self, fd: RawFd, tv: Option<Duration>, cb: F) -> io::Result<EventHandle>
+    pub fn add_fd<F>(&mut self, fd: RawFd, tv: Option<Duration>, cb: F, flags: EventFlags) -> io::Result<EventHandle>
     where
         F: FnMut(&mut EventHandle, EventFlags) + 'static,
     {
@@ -161,7 +130,7 @@ impl Libevent {
         let mut ev = unsafe {
             self.base_mut().event_new(
                 Some(fd),
-                EventFlags::PERSIST | EventFlags::READ,
+                flags,
                 handle_wrapped_callback,
                 None,
             )
@@ -184,7 +153,7 @@ impl Libevent {
             self.base_mut().event_assign(
                 &mut ev,
                 Some(fd),
-                EventFlags::PERSIST | EventFlags::READ,
+                flags,
                 handle_wrapped_callback,
                 Some(std::mem::transmute(cb_wrapped)),
             )
