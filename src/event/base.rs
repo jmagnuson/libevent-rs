@@ -7,10 +7,12 @@ use std::os::raw::{c_int, c_short, c_void};
 use std::ptr::NonNull;
 use std::time::Duration;
 
-use super::event::*;
+//use super::event::*;
+use super::AsRawEvent;
 
 pub type EvutilSocket = c_int;
 
+pub type FinalizerCallback = extern "C" fn(*mut libevent_sys::event, EventCallbackCtx);
 pub type EventCallbackFn = extern "C" fn(EvutilSocket, EventCallbackFlags, EventCallbackCtx);
 pub type EventCallbackCtx = *mut c_void;
 pub type EventCallbackFlags = c_short;
@@ -22,12 +24,44 @@ fn to_timeval(duration: Duration) -> libevent_sys::timeval {
     }
 }
 
+fn from_timeval(tv: &libevent_sys::timeval) -> Duration {
+    Duration::from_secs(tv.tv_sec) + Duration::from_micros(tv.tv_usec)
+}
+
+#[derive(Clone)]
+pub struct Handle {
+    //base: NonNull<libevent_sys::event_base>,
+    base: EventBase, // ok because we don't allow it to run
+}
+
+impl super::LoopMut for Handle {
+    fn loopexit(&self, timeout: Duration) -> i32 {
+        self.base.loopexit(timeout)
+    }
+
+    fn loopbreak(&self) -> i32 {
+        self.base.loopbreak()
+    }
+
+    fn loopcontinue(&self) -> i32 {
+        self.base.loopcontinue()
+    }
+}
+
 pub struct EventBase {
     base: NonNull<libevent_sys::event_base>,
 }
 
 /// The handle that abstracts over libevent's API in Rust.
 impl EventBase {
+    pub fn handle(&self) -> Handle {
+        Handle { base: self.clone_() }
+    }
+
+    fn clone_(&self) -> Self {
+        EventBase { base: self.base }
+    }
+
     pub fn new() -> Result<Self, io::Error> {
         let base = unsafe { libevent_sys::event_base_new() };
         unsafe { Self::from_raw(base) }
@@ -95,6 +129,7 @@ impl EventBase {
         unsafe { libevent_sys::event_base_loopcontinue(self.base.as_ptr()) as i32 }
     }
 
+    /*
     pub fn event_new(
         &mut self,
         fd: Option<EvutilSocket>,
@@ -128,10 +163,11 @@ impl EventBase {
 
         EventHandle::from_raw_unchecked(inner)
     }
+    */
 
     pub fn event_assign(
         &mut self,
-        ev: &mut EventHandle,
+        mut ev: impl AsRawEvent,
         fd: Option<EvutilSocket>,
         flags: EventFlags,
         callback: EventCallbackFn,
@@ -153,7 +189,7 @@ impl EventBase {
 
         unsafe {
             libevent_sys::event_assign(
-                ev.inner.lock().unwrap().inner.unwrap().as_ptr(),
+                ev.as_raw().as_ptr(),
                 self.as_inner_mut(),
                 fd,
                 flags.bits() as c_short,
@@ -163,7 +199,19 @@ impl EventBase {
         }
     }
 
-    pub fn event_add(&self, event: &EventHandle, timeout: Option<Duration>) -> c_int {
+    pub fn event_add(&self, ref mut event: impl AsRawEvent, timeout: Option<Duration>) -> c_int {
+        unsafe {
+            let p = event.as_raw().as_ptr();
+            if let Some(tv) = timeout {
+                libevent_sys::event_add(p, &to_timeval(tv))
+            } else {
+                // null timeout means no timeout to libevent
+                libevent_sys::event_add(p, std::ptr::null())
+            }
+        }
+    }
+
+    /*pub fn event_finalize(&self, event: &EventHandle, FinalizeCallback) -> c_int {
         unsafe {
             let p = event.inner.lock().unwrap().inner.unwrap().as_ptr();
             if let Some(tv) = timeout {
@@ -173,7 +221,7 @@ impl EventBase {
                 libevent_sys::event_add(p, std::ptr::null())
             }
         }
-    }
+    }*/
 }
 
 unsafe impl Send for EventBase {}

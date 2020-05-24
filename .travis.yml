@@ -30,3 +30,13 @@ script:
   - cargo clean
   - cargo build --no-default-features --features "openssl,pkgconfig,buildtime_bindgen" # pkgconfig, openssl, threading
   - cargo run --manifest-path examples/hello/Cargo.toml --no-default-features --features "openssl,pkgconfig,buildtime_bindgen" -- 5
+  - cargo clean
+    # With pre-generated bindings
+  - >
+    LIBEVENT_SYS_BINDINGS_FILE=examples/hello/bindings/bindings.rs
+    cargo build --no-default-features --features "openssl,pkgconfig"
+  - >
+    LIBEVENT_SYS_BINDINGS_FILE=examples/hello/bindings/bindings.rs
+    cargo run --manifest-path examples/hello/Cargo.toml
+    --no-default-features --features "openssl,pkgconfig"
+

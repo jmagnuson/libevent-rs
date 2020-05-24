@@ -2,6 +2,7 @@
 
 use libevent_sys;
 use std::io;
+use std::ops::DerefMut;
 use std::os::raw::{c_int, c_short};
 #[cfg(unix)]
 use std::os::unix::io::RawFd;
@@ -9,14 +10,19 @@ use std::time::Duration;
 
 mod event;
 pub use event::*;
+/*
+pub use event::{
+    EventBase, EventFlags, EventHandle, ExitReason, LoopFlags, EventCallbackCtx,
+    EvutilSocket, EventCallbackFlags,
+};
+*/
 
 /// Gets used as the boxed context for `ExternCallbackFn`
 struct EventCallbackWrapper {
-    inner: Box<dyn FnMut(&mut EventHandle, EventFlags)>,
-    ev: EventHandle,
+    inner: Box<dyn FnMut(RawFd, EventFlags)>,
 }
 
-extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: EventCallbackCtx) {
+extern "C" fn handle_wrapped_callback(fd: EvutilSocket, event: c_short, ctx: EventCallbackCtx) {
     let cb_ref = unsafe {
         let cb: *mut EventCallbackWrapper = ctx as *mut EventCallbackWrapper;
         let _cb_ref: &mut EventCallbackWrapper = &mut *cb;
@@ -24,8 +30,8 @@ extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: Ev
     };
 
     let flags = EventFlags::from_bits_truncate(event as u32);
-    let event_handle = &mut cb_ref.ev;
-    (cb_ref.inner)(event_handle, flags)
+    //let event_handle = &mut cb_ref.ev;
+    (cb_ref.inner)(fd as RawFd, flags)
 }
 
 pub struct Libevent {
@@ -98,9 +104,47 @@ impl Libevent {
         self.base.loop_(LoopFlags::empty())
     }
 
-    fn add_timer<F>(&mut self, tv: Duration, cb: F, flags: EventFlags) -> io::Result<EventHandle>
+    pub fn add_event<F, E>(&mut self, mut ev: E, cb: F) -> io::Result<()>
+        where
+            F: FnMut(RawFd, EventFlags) + Send + 'static,
+            E: Event,
+    {
+        ev.set_finalizer(Box::new(
+            |ev_inner| {
+                let ptr = ev_inner.as_raw().as_ptr();
+                //let ptr = ev_inner.as_ptr();
+                let boxed = unsafe { Box::from_raw((*ptr).ev_evcallback.evcb_arg) };
+                println!("DROPPING BOXED CLOSURE");
+                drop(boxed);
+            }));
+
+        let cb_wrapped = Box::new(EventCallbackWrapper {
+            inner: Box::new(cb),
+        });
+
+        let fd = ev.fd();
+        let flags = ev.flags();
+        let tv = ev.timeout();
+
+        // Now we can apply the closure + handle to self.
+        let _ = unsafe {
+            self.base_mut().event_assign(
+                &mut ev,
+                Some(fd),
+                flags,
+                handle_wrapped_callback,
+                Some(std::mem::transmute(cb_wrapped)),
+            )
+        };
+
+        let _ = unsafe { self.base().event_add(ev, tv) };
+
+        Ok(())
+    }
+    /*
+    fn add_timer<F>(&mut self, tv: Duration, cb: F, flags: EventFlags) -> io::Result<event::EventHandle>
     where
-        F: FnMut(&mut EventHandle, EventFlags) + 'static,
+        F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
     {
         // First allocate the event with no context, then apply the reference
         // to the closure (and itself) later on.
@@ -137,24 +181,24 @@ impl Libevent {
         Ok(ev)
     }
 
-    pub fn add_interval<F>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle>
+    pub fn add_interval<F>(&mut self, interval: Duration, cb: F) -> io::Result<event::EventHandle>
     where
-        F: FnMut(&mut EventHandle, EventFlags) + 'static,
+        F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
     {
         self.add_timer(interval, cb, EventFlags::PERSIST)
     }
 
-    pub fn add_oneshot<F>(&mut self, timeout: Duration, cb: F) -> io::Result<EventHandle>
+    pub fn add_oneshot<F>(&mut self, timeout: Duration, cb: F) -> io::Result<event::EventHandle>
     where
-        F: FnMut(&mut EventHandle, EventFlags) + 'static,
+        F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
     {
         self.add_timer(timeout, cb, EventFlags::empty())
     }
 
     #[cfg(unix)]
-    pub fn add_fd<F>(&mut self, fd: RawFd, tv: Option<Duration>, cb: F) -> io::Result<EventHandle>
+    pub fn add_fd<F>(&mut self, fd: RawFd, tv: Option<Duration>, cb: F, flags: EventFlags) -> io::Result<event::EventHandle>
     where
-        F: FnMut(&mut EventHandle, EventFlags) + 'static,
+        F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
     {
         // First allocate the event with no context, then apply the reference
         // to the closure (and itself) later on.
@@ -167,16 +211,18 @@ impl Libevent {
             )
         };
 
-        unsafe {
-            // A gross way to signify that we're leaking the boxed
-            // `EventCallbackWrapper` match libevent's context type.
-            // TODO: Use `event_finalize` to de-init boxed closure.
-            ev.inner.lock().unwrap().set_drop_ctx();
-        }
+        ev.inner.lock().unwrap().set_finalizer(|ev_inner| {
+            if let Some(event) = ev_inner.inner {
+                let ptr = event.as_ptr();
+                let boxed = unsafe { Box::from_raw((*ptr).ev_evcallback.evcb_arg) };
+                println!("DROPPING BOXED CLOSURE");
+                drop(boxed);
+            }
+        });
 
         let cb_wrapped = Box::new(EventCallbackWrapper {
             inner: Box::new(cb),
-            ev: ev.clone(),
+            ev: ev.weak_handle(),
         });
 
         // Now we can apply the closure + handle to self.
@@ -194,4 +240,5 @@ impl Libevent {
 
         Ok(ev)
     }
+    */
 }
