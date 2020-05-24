@@ -22,6 +22,11 @@ fn main() {
         )
     });
 
+    unsafe {
+        //libevent_sys::event_enable_debug_mode();
+        libevent_sys::event_enable_debug_logging(libevent_sys::EVENT_DBG_ALL);
+    }
+
     let mut libevent = Libevent::new().unwrap_or_else(|e| panic!("{:?}", e));
 
     let ret = unsafe { libevent.with_base(|base| ffi::helloc_init(base)) };
