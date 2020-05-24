@@ -136,12 +136,13 @@ impl Libevent {
             )
         };
 
-        unsafe {
-            // A gross way to signify that we're leaking the boxed
-            // `EventCallbackWrapper` match libevent's context type.
-            // TODO: Use `event_finalize` to de-init boxed closure.
-            ev.inner.lock().unwrap().set_drop_ctx();
-        }
+        ev.inner.lock().unwrap().set_finalizer(|ev_inner| {
+            if let Some(event) = ev_inner.inner {
+                let ptr = event.as_ptr();
+                let boxed = unsafe { Box::from_raw((*ptr).ev_evcallback.evcb_arg) };
+                drop(boxed);
+            }
+        });
 
         let cb_wrapped = Box::new(EventCallbackWrapper {
             inner: Box::new(cb),

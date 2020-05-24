@@ -11,6 +11,7 @@ use super::event::*;
 
 pub type EvutilSocket = c_int;
 
+pub type FinalizerCallback = extern "C" fn(*mut libevent_sys::event, EventCallbackCtx);
 pub type EventCallbackFn = extern "C" fn(EvutilSocket, EventCallbackFlags, EventCallbackCtx);
 pub type EventCallbackCtx = *mut c_void;
 pub type EventCallbackFlags = c_short;
@@ -174,6 +175,18 @@ impl EventBase {
             }
         }
     }
+
+    /*pub fn event_finalize(&self, event: &EventHandle, FinalizeCallback) -> c_int {
+        unsafe {
+            let p = event.inner.lock().unwrap().inner.unwrap().as_ptr();
+            if let Some(tv) = timeout {
+                libevent_sys::event_add(p, &to_timeval(tv))
+            } else {
+                // null timeout means no timeout to libevent
+                libevent_sys::event_add(p, std::ptr::null())
+            }
+        }
+    }*/
 }
 
 unsafe impl Send for EventBase {}
