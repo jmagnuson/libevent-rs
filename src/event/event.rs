@@ -61,6 +61,7 @@ impl Drop for Inner {
 
         if let Some(inner) = self.inner.take() {
             unsafe {
+                println!("FREEING EVENT POINTER");
                 libevent_sys::event_free(inner.as_ptr());
             }
         }

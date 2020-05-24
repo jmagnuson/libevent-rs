@@ -8,7 +8,11 @@ use std::os::unix::io::RawFd;
 use std::time::Duration;
 
 mod event;
-pub use event::*;
+//pub use event::*;
+pub use event::{
+    EventBase, EventFlags, EventWeakHandle as EventHandle, ExitReason, LoopFlags, EventCallbackCtx,
+    EvutilSocket, EventCallbackFlags,
+};
 
 /// Gets used as the boxed context for `ExternCallbackFn`
 struct EventCallbackWrapper {
@@ -98,32 +102,32 @@ impl Libevent {
         self.base.loop_(LoopFlags::empty())
     }
 
-    fn add_timer<F>(&mut self, tv: Duration, cb: F, flags: EventFlags) -> io::Result<EventHandle>
+    fn add_timer<F>(&mut self, tv: Duration, cb: F, flags: EventFlags) -> io::Result<event::EventHandle>
     where
-        F: FnMut(&mut EventHandle, EventFlags) + 'static,
+        F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
     {
         #[cfg(unix)]
         self.add_fd(-1 as RawFd, Some(tv), cb, flags)
     }
 
-    pub fn add_interval<F>(&mut self, interval: Duration, cb: F) -> io::Result<EventHandle>
+    pub fn add_interval<F>(&mut self, interval: Duration, cb: F) -> io::Result<event::EventHandle>
     where
-        F: FnMut(&mut EventHandle, EventFlags) + 'static,
+        F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
     {
         self.add_timer(interval, cb, EventFlags::PERSIST)
     }
 
-    pub fn add_oneshot<F>(&mut self, timeout: Duration, cb: F) -> io::Result<EventHandle>
+    pub fn add_oneshot<F>(&mut self, timeout: Duration, cb: F) -> io::Result<event::EventHandle>
     where
-        F: FnMut(&mut EventHandle, EventFlags) + 'static,
+        F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
     {
         self.add_timer(timeout, cb, EventFlags::empty())
     }
 
     #[cfg(unix)]
-    pub fn add_fd<F>(&mut self, fd: RawFd, tv: Option<Duration>, cb: F, flags: EventFlags) -> io::Result<EventHandle>
+    pub fn add_fd<F>(&mut self, fd: RawFd, tv: Option<Duration>, cb: F, flags: EventFlags) -> io::Result<event::EventHandle>
     where
-        F: FnMut(&mut EventHandle, EventFlags) + 'static,
+        F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
     {
         // First allocate the event with no context, then apply the reference
         // to the closure (and itself) later on.
@@ -140,13 +144,14 @@ impl Libevent {
             if let Some(event) = ev_inner.inner {
                 let ptr = event.as_ptr();
                 let boxed = unsafe { Box::from_raw((*ptr).ev_evcallback.evcb_arg) };
+                println!("DROPPING BOXED CLOSURE");
                 drop(boxed);
             }
         });
 
         let cb_wrapped = Box::new(EventCallbackWrapper {
             inner: Box::new(cb),
-            ev: ev.clone(),
+            ev: ev.weak_handle(),
         });
 
         // Now we can apply the closure + handle to self.
