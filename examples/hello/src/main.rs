@@ -24,7 +24,7 @@ fn main() {
 
     unsafe {
         //libevent_sys::event_enable_debug_mode();
-        libevent_sys::event_enable_debug_logging(libevent_sys::EVENT_DBG_ALL);
+        //libevent_sys::event_enable_debug_logging(libevent_sys::EVENT_DBG_ALL);
     }
 
     let mut libevent = Libevent::new().unwrap_or_else(|e| panic!("{:?}", e));
@@ -41,11 +41,24 @@ fn main() {
     let _ = unsafe { libevent.base().event_add(&ev, Some(Duration::from_secs(2))) };
 
     let mut a: usize = 0;
+    let mut b: usize = 0;
+
+    let mut ev_temp = Some(libevent.add_interval(Duration::from_secs(1), move |_ev, _flags| {
+        b += 1;
+        println!("callback: rust temp closure (interval: 1s, count: {})", b);
+    }).unwrap());
 
     let _ev = libevent.add_interval(Duration::from_secs(3), move |_ev, _flags| {
         a += 1;
         println!("callback: rust closure (interval: 3s, count: {}, flags: {:?})", a, _flags);
-    });
+
+        if a == 2 {
+            if let Some(inner) = ev_temp.take() {
+                println!("Dropping ev_temp timer");
+                drop(inner)
+            }
+        }
+    }).unwrap();
 
     if let Some(duration) = run_duration {
         println!("Running for {}s", duration.as_secs());
