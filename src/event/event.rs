@@ -1,69 +1,40 @@
 use std::ptr::NonNull;
-use std::sync::{Arc, Mutex, Weak};
 use std::os::raw;
 
-#[derive(Clone)]
 pub struct EventHandle {
-    pub inner: Arc<Mutex<Inner>>,
+    pub inner: NonNull<libevent_sys::event>,
+    finalizer: Option<Box<dyn FnOnce(&mut Self)>>,
 }
-
-/// Used within closures, doesn't count toward ownership.
-#[derive(Clone)]
-pub struct EventWeakHandle {
-    pub inner: Weak<Mutex<Inner>>,
-}
-
 
 impl EventHandle {
-    pub(crate) fn from_raw_unchecked(inner: *mut libevent_sys::event) -> Self {
-        EventHandle {
-            inner: Arc::new(Mutex::new(Inner::new_unchecked(inner))),
-        }
-    }
-
-    pub(crate) fn weak_handle(&self) -> EventWeakHandle {
-        EventWeakHandle {
-            inner: Arc::downgrade(&self.inner),
-        }
-    }
-}
-
-pub struct Inner {
-    pub inner: Option<NonNull<libevent_sys::event>>,
-    finalizer: Option<Box<dyn FnOnce(&mut Inner)>>,
-}
-
-impl Inner {
     pub(crate) fn new_unchecked(inner: *mut libevent_sys::event) -> Self {
         let inner = NonNull::new(inner).expect("Got null event pointer.");
 
-        Inner {
-            inner: Some(inner),
+        EventHandle {
+            inner,
             finalizer: None,
         }
     }
 
     pub(crate) fn set_finalizer<F>(&mut self, finalizer: F)
         where
-            F: FnOnce(&mut Inner) + 'static
+            F: FnOnce(&mut Self) + 'static
     {
         self.finalizer = Some(Box::new(finalizer));
     }
 }
 
-unsafe impl Send for Inner {}
+unsafe impl Send for EventHandle {}
 
-impl Drop for Inner {
+impl Drop for EventHandle {
     fn drop(&mut self) {
         if let Some(finalizer) = self.finalizer.take() {
             (finalizer)(self);
         }
 
-        if let Some(inner) = self.inner.take() {
-            unsafe {
-                println!("FREEING EVENT POINTER");
-                libevent_sys::event_free(inner.as_ptr());
-            }
+        unsafe {
+            println!("FREEING EVENT POINTER");
+            libevent_sys::event_free(self.inner.as_ptr());
         }
     }
 }
