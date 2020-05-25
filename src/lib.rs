@@ -8,11 +8,13 @@ use std::os::unix::io::RawFd;
 use std::time::Duration;
 
 mod event;
-//pub use event::*;
+pub use event::*;
+/*
 pub use event::{
     EventBase, EventFlags, EventHandle, ExitReason, LoopFlags, EventCallbackCtx,
     EvutilSocket, EventCallbackFlags,
 };
+*/
 
 /*
 /// Gets used as the boxed context for `ExternCallbackFn`
@@ -104,6 +106,36 @@ impl Libevent {
         self.base.loop_(LoopFlags::empty())
     }
 
+    pub fn add_event<F>(&mut self, ev: impl Event, cb: F) -> io::Result<()> {
+        ev.set_finalizer(Box::new(
+            |ev_inner| {
+                let ptr = ev_inner.as_raw().as_ptr();
+                let boxed = unsafe { Box::from_raw((*ptr).ev_evcallback.evcb_arg) };
+                println!("DROPPING BOXED CLOSURE");
+                drop(boxed);
+            }));
+
+        let cb_wrapped = Box::new(EventCallbackWrapper {
+            inner: Box::new(cb),
+            ev: ev.weak_handle(),
+        });
+
+        // Now we can apply the closure + handle to self.
+        let _ = unsafe {
+            self.base_mut().event_assign(
+                &mut ev,
+                Some(fd),
+                flags,
+                handle_wrapped_callback,
+                Some(std::mem::transmute(cb_wrapped)),
+            )
+        };
+
+        let _ = unsafe { self.base().event_add(&ev, tv) };
+
+        Ok(ev)
+    }
+    /*
     fn add_timer<F>(&mut self, tv: Duration, cb: F, flags: EventFlags) -> io::Result<event::EventHandle>
     where
         F: FnMut(&mut EventHandle, EventFlags) + Send + 'static,
@@ -202,4 +234,5 @@ impl Libevent {
 
         Ok(ev)
     }
+    */
 }

@@ -61,7 +61,7 @@ impl Drop for FdEvent {
     }
 }
 
-pub(crate) trait Event {
+pub(crate) trait Event: AsRawEvent {
     #[cfg(unix)]
     fn fd(&self) -> std::os::unix::io::RawFd;
     fn base(&self) -> &super::base::EventBase;
@@ -69,6 +69,7 @@ pub(crate) trait Event {
     fn cb(&self) -> libevent_sys::event_callback_fn;
     fn cb_arg(&self) -> *mut raw::c_void;
     fn priority(&self) -> raw::c_int;
+    fn set_finalizer<F>(&mut self, finalizer: Box<dyn FnOnce(&mut Self)>);
     fn struct_size() -> libevent_sys::size_t {
         unsafe { libevent_sys::event_get_struct_event_size() }
     }
