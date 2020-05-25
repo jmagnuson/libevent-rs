@@ -10,15 +10,17 @@ use std::time::Duration;
 mod event;
 //pub use event::*;
 pub use event::{
-    EventBase, EventFlags, EventWeakHandle as EventHandle, ExitReason, LoopFlags, EventCallbackCtx,
+    EventBase, EventFlags, EventHandle, ExitReason, LoopFlags, EventCallbackCtx,
     EvutilSocket, EventCallbackFlags,
 };
 
+/*
 /// Gets used as the boxed context for `ExternCallbackFn`
 struct EventCallbackWrapper {
     inner: Box<dyn FnMut(&mut EventHandle, EventFlags)>,
     ev: EventHandle,
 }
+*/
 
 extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: EventCallbackCtx) {
     let cb_ref = unsafe {

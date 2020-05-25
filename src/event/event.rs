@@ -1,16 +1,38 @@
+use super::*;
 use std::ptr::NonNull;
 use std::os::raw;
 
-pub struct EventHandle {
+#[cfg(unix)]
+use std::os::unix::io::RawFd;
+// TODO: #[cfg(windows)] use RawSocket as RawFd;
+
+/// Gets used as the boxed context for `ExternCallbackFn`
+struct EventCallbackWrapper {
+    inner: Box<dyn FnMut(RawFd, EventFlags)>,
+}
+
+extern "C" fn handle_wrapped_callback(fd: EvutilSocket, event: raw::c_short, ctx: EventCallbackCtx) {
+    let cb_ref = unsafe {
+        let cb: *mut EventCallbackWrapper = ctx as *mut EventCallbackWrapper;
+        let _cb_ref: &mut EventCallbackWrapper = &mut *cb;
+        _cb_ref
+    };
+
+    let fd = fd as RawFd;
+    let flags = EventFlags::from_bits_truncate(event as u32);
+    (cb_ref.inner)(fd, flags)
+}
+
+pub struct FdEvent {
     pub inner: NonNull<libevent_sys::event>,
     finalizer: Option<Box<dyn FnOnce(&mut Self)>>,
 }
 
-impl EventHandle {
+impl FdEvent {
     pub(crate) fn new_unchecked(inner: *mut libevent_sys::event) -> Self {
         let inner = NonNull::new(inner).expect("Got null event pointer.");
 
-        EventHandle {
+        FdEvent {
             inner,
             finalizer: None,
         }
@@ -24,9 +46,9 @@ impl EventHandle {
     }
 }
 
-unsafe impl Send for EventHandle {}
+unsafe impl Send for FdEvent {}
 
-impl Drop for EventHandle {
+impl Drop for FdEvent {
     fn drop(&mut self) {
         if let Some(finalizer) = self.finalizer.take() {
             (finalizer)(self);
