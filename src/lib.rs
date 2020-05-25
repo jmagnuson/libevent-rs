@@ -16,15 +16,12 @@ pub use event::{
 };
 */
 
-/*
 /// Gets used as the boxed context for `ExternCallbackFn`
 struct EventCallbackWrapper {
-    inner: Box<dyn FnMut(&mut EventHandle, EventFlags)>,
-    ev: EventHandle,
+    inner: Box<dyn FnMut(RawFd, EventFlags)>,
 }
-*/
 
-extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: EventCallbackCtx) {
+extern "C" fn handle_wrapped_callback(fd: EvutilSocket, event: c_short, ctx: EventCallbackCtx) {
     let cb_ref = unsafe {
         let cb: *mut EventCallbackWrapper = ctx as *mut EventCallbackWrapper;
         let _cb_ref: &mut EventCallbackWrapper = &mut *cb;
@@ -32,8 +29,8 @@ extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: Ev
     };
 
     let flags = EventFlags::from_bits_truncate(event as u32);
-    let event_handle = &mut cb_ref.ev;
-    (cb_ref.inner)(event_handle, flags)
+    //let event_handle = &mut cb_ref.ev;
+    (cb_ref.inner)(fd as RawFd, flags)
 }
 
 pub struct Libevent {
@@ -106,10 +103,15 @@ impl Libevent {
         self.base.loop_(LoopFlags::empty())
     }
 
-    pub fn add_event<F>(&mut self, ev: impl Event, cb: F) -> io::Result<()> {
+    pub fn add_event<F, E>(&mut self, ref mut ev: /*&mut E*/ impl Event, cb: F) -> io::Result<()>
+        where
+            F: FnMut(RawFd, EventFlags) + Send + 'static,
+            E: Event,
+    {
         ev.set_finalizer(Box::new(
             |ev_inner| {
                 let ptr = ev_inner.as_raw().as_ptr();
+                //let ptr = ev_inner.as_ptr();
                 let boxed = unsafe { Box::from_raw((*ptr).ev_evcallback.evcb_arg) };
                 println!("DROPPING BOXED CLOSURE");
                 drop(boxed);
@@ -117,13 +119,16 @@ impl Libevent {
 
         let cb_wrapped = Box::new(EventCallbackWrapper {
             inner: Box::new(cb),
-            ev: ev.weak_handle(),
         });
+
+        let fd = ev.fd();
+        let flags = ev.flags()
+        let tv = ev.timeout();
 
         // Now we can apply the closure + handle to self.
         let _ = unsafe {
             self.base_mut().event_assign(
-                &mut ev,
+                ev,
                 Some(fd),
                 flags,
                 handle_wrapped_callback,
@@ -131,9 +136,9 @@ impl Libevent {
             )
         };
 
-        let _ = unsafe { self.base().event_add(&ev, tv) };
+        let _ = unsafe { self.base().event_add(ev, tv) };
 
-        Ok(ev)
+        Ok(())
     }
     /*
     fn add_timer<F>(&mut self, tv: Duration, cb: F, flags: EventFlags) -> io::Result<event::EventHandle>

@@ -167,7 +167,7 @@ impl EventBase {
         }
     }
 
-    pub fn event_add(&self, event: impl AsRawEvent, timeout: Option<Duration>) -> c_int {
+    pub fn event_add(&self, ref mut event: impl AsRawEvent, timeout: Option<Duration>) -> c_int {
         unsafe {
             let p = event.as_raw().as_ptr();
             if let Some(tv) = timeout {

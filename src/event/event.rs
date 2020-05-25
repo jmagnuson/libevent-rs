@@ -69,8 +69,13 @@ pub(crate) trait Event: AsRawEvent {
     fn cb(&self) -> libevent_sys::event_callback_fn;
     fn cb_arg(&self) -> *mut raw::c_void;
     fn priority(&self) -> raw::c_int;
-    fn set_finalizer<F>(&mut self, finalizer: Box<dyn FnOnce(&mut Self)>);
+    fn set_finalizer(&mut self, finalizer: Box<dyn FnOnce(&mut Self)>);
+    //fn set_finalizer(&mut self, finalizer: Box<dyn FnOnce(NonNull<libevent_sys::event>)>);
+    fn timeout(&self) -> Option<std::time::Duration>;
     fn struct_size() -> libevent_sys::size_t {
         unsafe { libevent_sys::event_get_struct_event_size() }
     }
 }
+
+//impl<'a, T> Event for &'a T where T: Event {}
+//impl<'a, T> Event for &'a mut T where T: Event + AsRawEvent {}
