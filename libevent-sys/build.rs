@@ -1,5 +1,5 @@
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(feature = "bundled")]
 fn build_libevent(libevent_path: impl AsRef<std::path::Path>) -> PathBuf {
@@ -142,7 +142,6 @@ fn run_pkg_config() -> Option<Vec<String>> {
 
 #[cfg(feature = "bundled")]
 fn find_libevent() -> Option<Vec<String>> {
-    use std::path::Path;
     use std::process::Command;
 
     if !Path::new("libevent/.git").exists() {
@@ -165,22 +164,13 @@ fn find_libevent() -> Option<Vec<String>> {
     run_pkg_config()
 }
 
-fn main() {
+#[cfg(feature = "buildtime_bindgen")]
+fn generate_bindings(include_paths: Vec<String>, out_path: impl AsRef<Path>) {
     println!("cargo:rerun-if-changed=libevent");
     println!("cargo:rerun-if-changed=wrapper.h");
 
     let target = env::var("TARGET").unwrap();
     let host = env::var("HOST").unwrap();
-
-    if cfg!(feature = "verbose_build") {
-        for (key, val) in env::vars() {
-            println!("{}: {}", key, val);
-        }
-        let args: Vec<String> = env::args().collect();
-        println!("args: {:?}", args);
-    }
-
-    let include_paths = find_libevent().expect("No include paths for libevent found");
 
     let mut builder = bindgen::Builder::default();
 
@@ -207,8 +197,31 @@ fn main() {
         .generate()
         .expect("Failed to generate bindings");
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
-        .write_to_file(out_path.join("bindings.rs"))
+        .write_to_file(out_path.as_ref().join("bindings.rs"))
         .expect("Failed to write bindings");
+}
+
+#[cfg(not(feature = "buildtime_bindgen"))]
+fn generate_bindings(_include_paths: Vec<String>, out_path: impl AsRef<Path>) {
+    use std::fs;
+    let in_path = env::var("LIBEVENT_SYS_BINDINGS_FILE")
+        .expect("LIBEVENT_SYS_BINDINGS_FILE should be populated if buildtime_bindgen feature is not enabled");
+    fs::copy(in_path, out_path.as_ref().join("bindings.rs"))
+        .expect("Failed to copy bindings to output destination");
+}
+
+fn main() {
+    if cfg!(feature = "verbose_build") {
+        for (key, val) in env::vars() {
+            println!("{}: {}", key, val);
+        }
+        let args: Vec<String> = env::args().collect();
+        println!("args: {:?}", args);
+    }
+
+    let include_paths = find_libevent().expect("No include paths for libevent found");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    generate_bindings(include_paths, out_path);
 }

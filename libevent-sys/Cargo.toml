@@ -15,10 +15,11 @@ links = "event"
 build = "build.rs"
 
 [features]
-default = [ "pkgconfig", "openssl", "threading" ]
+default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen" ]
 static = []
 pkgconfig = [ "pkg-config" ]
 bundled = [ "static", "cmake" ]
+buildtime_bindgen = [ "bindgen" ]
 openssl = [ "openssl-sys" ]
 openssl_bundled = [ "openssl-sys/vendored", "threading" ]
 threading = []
@@ -31,6 +32,6 @@ version = "0.9"
 optional = true
 
 [build-dependencies]
-bindgen = "0.53"
+bindgen = { version = "0.53", optional = true }
 cmake = { version = "0.1", optional = true }
 pkg-config = { version = "0.3", optional = true }
