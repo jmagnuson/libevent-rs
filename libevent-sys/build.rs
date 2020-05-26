@@ -105,15 +105,17 @@ fn run_pkg_config() -> Option<Vec<String>> {
 
     let mut include_paths = HashSet::new();
 
-    if let Ok(mut lib) = pkg.probe("libevent_core") {
+    if let Ok(mut lib) = pkg.probe("libevent_core").or_else(|_| pkg.probe("libevent")) {
         include_paths.extend(lib.include_paths.drain(..));
     } else {
         return None;
     }
 
     {
-        let mut lib = pkg.probe("libevent_extra").unwrap();
-        include_paths.extend(lib.include_paths.drain(..));
+        match pkg.probe("libevent_extra") {
+            Ok(mut lib) => include_paths.extend(lib.include_paths.drain(..)),
+            Err(e) => println!("Failed to find libevent_extra: {:?}", e),
+        }
     }
 
     if cfg!(feature = "openssl") {
