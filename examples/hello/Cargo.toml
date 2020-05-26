@@ -6,9 +6,11 @@ edition = "2018"
 build="build.rs"
 
 [features]
-default = [ "bundled", "libevent/openssl" ]
+default = [ "bundled", "openssl" ]
 bundled = ["libevent/bundled",  "libevent-sys/bundled" ]
+openssl = ["libevent/openssl"]
 openssl_bundled = [ "libevent/openssl_bundled" ]
+pkgconfig = ["libevent/pkgconfig"]
 
 [dependencies.libevent]
 path = "../../"
