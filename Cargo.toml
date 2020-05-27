@@ -11,10 +11,11 @@ edition = "2018"
 members = ['examples/hello']
 
 [features]
-default = [ "pkgconfig", "openssl", "threading" ]
+default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen" ]
 static = [ "libevent-sys/static" ]
 pkgconfig = [ "libevent-sys/pkgconfig" ]
 bundled = [ "static", "libevent-sys/bundled" ]
+buildtime_bindgen = [ "libevent-sys/buildtime_bindgen" ]
 openssl = [ "libevent-sys/openssl" ]
 openssl_bundled = [ "libevent-sys/openssl_bundled", "threading" ]
 threading = [ "libevent-sys/threading" ]

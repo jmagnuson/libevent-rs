@@ -28,5 +28,5 @@ script:
     # Now pkg-config build
   - sudo apt-get install -y libssl-dev libevent-dev
   - cargo clean
-  - cargo build --no-default-features --features "openssl,pkgconfig" # pkgconfig, openssl, threading
-  - cargo run --manifest-path examples/hello/Cargo.toml --no-default-features --features "openssl,pkgconfig" -- 5
+  - cargo build --no-default-features --features "openssl,pkgconfig,buildtime_bindgen" # pkgconfig, openssl, threading
+  - cargo run --manifest-path examples/hello/Cargo.toml --no-default-features --features "openssl,pkgconfig,buildtime_bindgen" -- 5
