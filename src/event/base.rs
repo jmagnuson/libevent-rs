@@ -24,6 +24,10 @@ fn to_timeval(duration: Duration) -> libevent_sys::timeval {
     }
 }
 
+fn from_timeval(tv: &libevent_sys::timeval) -> Duration {
+    Duration::from_secs(tv.tv_sec) + Duration::from_micros(tv.tv_usec)
+}
+
 pub struct EventBase {
     base: NonNull<libevent_sys::event_base>,
 }

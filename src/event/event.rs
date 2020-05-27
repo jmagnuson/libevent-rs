@@ -61,6 +61,56 @@ impl Drop for FdEvent {
     }
 }
 
+impl AsRawEvent for FdEvent {
+    fn as_raw(&mut self) -> NonNull<libevent_sys::event> {
+        self.inner
+    }
+}
+
+use super::base::EventBase;
+impl Event for FdEvent {
+    #[cfg(unix)]
+    fn fd(&self) -> std::os::unix::io::RawFd {
+        libevent_sys::event_get_fd(self.as_raw().as_ptr()) as RawFd
+    }
+
+    // TODO: with_base? can't return a ref here
+    fn base(&self) -> &EventBase {
+        unimplemented!()
+        //EventBase::from_raw((*self.as_raw().as_ptr()).ev_base)
+    }
+
+    fn flags(&self) -> super::base::EventFlags {
+        EventFlags::from_bits_truncate(
+            libevent_sys::event_get_events(self.as_raw().as_ptr()) as u32
+        )
+    }
+
+    fn cb(&self) -> libevent_sys::event_callback_fn {
+        //(*self.as_raw().as_ptr()).ev_evcallback
+        libevent_sys::event_get_callback(self.as_raw().as_ptr())
+    }
+
+    fn cb_arg(&self) -> *mut raw::c_void {
+        //(*self.as_raw().as_ptr()).ev_fd as RawFd
+        libevent_sys::event_get_callback_arg(self.as_raw().as_ptr())
+    }
+
+    fn priority(&self) -> raw::c_int {
+        libevent_sys::event_get_priority(self.as_raw().as_ptr())
+    }
+
+    fn set_finalizer(&mut self, finalizer: Box<dyn FnOnce(&mut Self)>) {
+        (*self.as_raw().as_ptr()).ev_fd as RawFd
+    }
+
+    //fn set_finalizer(&mut self, finalizer: Box<dyn FnOnce(NonNull<libevent_sys::event>)>);
+    fn timeout(&self) -> Option<std::time::Duration>{
+        // Hmm.. this may be a Instant instead
+        super::base::from_timeval((*self.as_raw().as_ptr()).ev_timeout)
+    }
+}
+
 pub/*(crate)*/ trait Event: AsRawEvent {
     #[cfg(unix)]
     fn fd(&self) -> std::os::unix::io::RawFd;

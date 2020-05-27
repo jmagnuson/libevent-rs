@@ -104,14 +104,11 @@ impl Libevent {
         self.base.loop_(LoopFlags::empty())
     }
 
-    pub fn add_event<F, E, D>(&mut self, /*ref*/ mut ev: E /*impl Event*/, cb: F) -> io::Result<()>
+    pub fn add_event<F, E>(&mut self, mut ev: E, cb: F) -> io::Result<()>
         where
             F: FnMut(RawFd, EventFlags) + Send + 'static,
             E: Event,
-            D: DerefMut<Target = E>,
     {
-        //let ev = ev.deref_mut();
-
         ev.set_finalizer(Box::new(
             |ev_inner| {
                 let ptr = ev_inner.as_raw().as_ptr();
