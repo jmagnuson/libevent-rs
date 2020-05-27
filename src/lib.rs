@@ -2,6 +2,7 @@
 
 use libevent_sys;
 use std::io;
+use std::ops::DerefMut;
 use std::os::raw::{c_int, c_short};
 #[cfg(unix)]
 use std::os::unix::io::RawFd;
@@ -103,11 +104,14 @@ impl Libevent {
         self.base.loop_(LoopFlags::empty())
     }
 
-    pub fn add_event<F, E>(&mut self, ref mut ev: /*&mut E*/ impl Event, cb: F) -> io::Result<()>
+    pub fn add_event<F, E, D>(&mut self, /*ref*/ mut ev: E /*impl Event*/, cb: F) -> io::Result<()>
         where
             F: FnMut(RawFd, EventFlags) + Send + 'static,
             E: Event,
+            D: DerefMut<Target = E>,
     {
+        //let ev = ev.deref_mut();
+
         ev.set_finalizer(Box::new(
             |ev_inner| {
                 let ptr = ev_inner.as_raw().as_ptr();
@@ -122,13 +126,13 @@ impl Libevent {
         });
 
         let fd = ev.fd();
-        let flags = ev.flags()
+        let flags = ev.flags();
         let tv = ev.timeout();
 
         // Now we can apply the closure + handle to self.
         let _ = unsafe {
             self.base_mut().event_assign(
-                ev,
+                &mut ev,
                 Some(fd),
                 flags,
                 handle_wrapped_callback,

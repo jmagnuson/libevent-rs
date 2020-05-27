@@ -61,7 +61,7 @@ impl Drop for FdEvent {
     }
 }
 
-pub(crate) trait Event: AsRawEvent {
+pub/*(crate)*/ trait Event: AsRawEvent {
     #[cfg(unix)]
     fn fd(&self) -> std::os::unix::io::RawFd;
     fn base(&self) -> &super::base::EventBase;
@@ -79,3 +79,18 @@ pub(crate) trait Event: AsRawEvent {
 
 //impl<'a, T> Event for &'a T where T: Event {}
 //impl<'a, T> Event for &'a mut T where T: Event + AsRawEvent {}
+
+/*
+impl<'a, T> Event for &'a mut T where T: Event {
+    #[cfg(unix)]
+    fn fd(&self) -> std::os::unix::io::RawFd { (**self).fd() }
+    fn base(&self) -> &super::base::EventBase { (**self).base() }
+    fn flags(&self) -> super::base::EventFlags { (**self).flags() }
+    fn cb(&self) -> libevent_sys::event_callback_fn { (**self).cb() }
+    fn cb_arg(&self) -> *mut raw::c_void { (**self).cb_arg() }
+    fn priority(&self) -> raw::c_int { (**self).priority() }
+    fn set_finalizer(&mut self, finalizer: Box<dyn FnOnce(Self)>) { (**self).set_finalizer(finalizer) }
+    //fn set_finalizer(&mut self, finalizer: Box<dyn FnOnce(NonNull<libevent_sys::event>)>);
+    fn timeout(&self) -> Option<std::time::Duration> { (**self).timeout() }
+}
+*/

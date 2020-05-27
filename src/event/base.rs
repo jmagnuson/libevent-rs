@@ -135,7 +135,7 @@ impl EventBase {
 
     pub fn event_assign(
         &mut self,
-        ev: impl AsRawEvent,
+        mut ev: impl AsRawEvent,
         fd: Option<EvutilSocket>,
         flags: EventFlags,
         callback: EventCallbackFn,
