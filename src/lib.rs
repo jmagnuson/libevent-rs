@@ -30,20 +30,7 @@ extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: Ev
     (cb_ref.inner)(event_handle, flags)
 }
 
-pub struct Libevent {
-    base: Base,
-}
-
-impl Libevent {
-    pub fn new() -> Result<Self, io::Error> {
-        Base::new().map(|base| Libevent { base })
-    }
-
-    pub unsafe fn from_raw(base: *mut libevent_sys::event_base) -> Result<Self, io::Error> {
-        let base = Base::from_raw(base)?;
-        Ok(Libevent { base })
-    }
-
+impl Base {
     // TODO: This should be raw_base, and EventBase should prevent having to use raw altogether.
     /// # Safety
     /// Exposes the event_base handle, which can be used to make any sort of
@@ -52,52 +39,38 @@ impl Libevent {
     where
         F: Fn(*mut libevent_sys::event_base) -> c_int,
     {
-        f(self.base.as_inner_mut())
-    }
-
-    /// # Safety
-    /// Exposes the event_base handle, which can be used to make any sort of
-    /// modifications to the event loop without going through proper checks.
-    pub unsafe fn base(&self) -> &Base {
-        &self.base
-    }
-
-    /// # Safety
-    /// Exposes the event_base handle, which can be used to make any sort of
-    /// modifications to the event loop without going through proper checks.
-    pub unsafe fn base_mut(&mut self) -> &mut Base {
-        &mut self.base
+        f(self.as_inner_mut())
     }
 
     /// Turns the libevent base once.
     // TODO: any way to show if work was done?
     pub fn turn(&self) -> ExitReason {
-        self.base.loop_(LoopFlags::NONBLOCK)
+        self.loop_(LoopFlags::NONBLOCK)
     }
 
     /// Turns the libevent base until exit or timeout duration reached.
     pub fn run_timeout(&self, timeout: Duration) -> ExitReason {
-        if self.base.loopexit(timeout) != 0 {
+        if self.loopexit(timeout) != 0 {
             // TODO: This conflates errors, is it ok?
             return ExitReason::Error;
         };
-        self.base.loop_(LoopFlags::empty())
+        self.loop_(LoopFlags::empty())
     }
 
     /// Turns the libevent base until next active event.
     pub fn run_until_event(&self, timeout: Option<Duration>) -> ExitReason {
         if let Some(timeout) = timeout {
-            if self.base.loopexit(timeout) != 0 {
+            if self.loopexit(timeout) != 0 {
                 // TODO: This conflates errors, is it ok?
                 return ExitReason::Error;
             }
         }
-        self.base.loop_(LoopFlags::ONCE)
+        self.loop_(LoopFlags::ONCE)
     }
 
     /// Turns the libevent base until exit.
     pub fn run(&self) -> ExitReason {
-        self.base.loop_(LoopFlags::empty())
+        self.loop_(LoopFlags::empty())
     }
 
     fn add_timer<F>(&mut self, tv: Duration, cb: F, flags: EventFlags) -> io::Result<EventHandle>
@@ -106,10 +79,7 @@ impl Libevent {
     {
         // First allocate the event with no context, then apply the reference
         // to the closure (and itself) later on.
-        let mut ev = unsafe {
-            self.base_mut()
-                .event_new(None, flags, handle_wrapped_callback, None)
-        };
+        let mut ev = unsafe { self.event_new(None, flags, handle_wrapped_callback, None) };
 
         unsafe {
             // A gross way to signify that we're leaking the boxed
@@ -125,7 +95,7 @@ impl Libevent {
 
         // Now we can apply the closure + handle to self.
         let _ = unsafe {
-            self.base_mut().event_assign(
+            self.event_assign(
                 &mut ev,
                 None,
                 flags,
@@ -134,7 +104,7 @@ impl Libevent {
             )
         };
 
-        let _ = unsafe { self.base().event_add(&ev, Some(tv)) };
+        let _ = unsafe { self.event_add(&ev, Some(tv)) };
 
         Ok(ev)
     }
@@ -161,7 +131,7 @@ impl Libevent {
         // First allocate the event with no context, then apply the reference
         // to the closure (and itself) later on.
         let mut ev = unsafe {
-            self.base_mut().event_new(
+            self.event_new(
                 Some(fd),
                 EventFlags::PERSIST | EventFlags::READ,
                 handle_wrapped_callback,
@@ -183,7 +153,7 @@ impl Libevent {
 
         // Now we can apply the closure + handle to self.
         let _ = unsafe {
-            self.base_mut().event_assign(
+            self.event_assign(
                 &mut ev,
                 Some(fd),
                 EventFlags::PERSIST | EventFlags::READ,
@@ -192,7 +162,7 @@ impl Libevent {
             )
         };
 
-        let _ = unsafe { self.base().event_add(&ev, tv) };
+        let _ = unsafe { self.event_add(&ev, tv) };
 
         Ok(ev)
     }

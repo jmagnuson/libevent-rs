@@ -1,4 +1,4 @@
-use libevent::Libevent;
+use libevent::Base;
 use std::time::Duration;
 
 pub mod ffi;
@@ -22,34 +22,33 @@ fn main() {
         )
     });
 
-    let mut libevent = Libevent::new().unwrap_or_else(|e| panic!("{:?}", e));
+    let mut base = Base::new().unwrap_or_else(|e| panic!("{:?}", e));
 
-    let ret = unsafe { libevent.with_base(|base| ffi::helloc_init(base)) };
+    let ret = unsafe { base.with_base(|base| ffi::helloc_init(base)) };
     assert_eq!(ret, 0);
 
-    let ev = unsafe {
-        libevent
-            .base_mut()
-            .event_new(None, libevent::EventFlags::PERSIST, hello_callback, None)
-    };
+    let ev = unsafe { base.event_new(None, libevent::EventFlags::PERSIST, hello_callback, None) };
 
-    let _ = unsafe { libevent.base().event_add(&ev, Some(Duration::from_secs(2))) };
+    let _ = unsafe { base.event_add(&ev, Some(Duration::from_secs(2))) };
 
     let mut a: usize = 0;
 
-    let _ev = libevent.add_interval(Duration::from_secs(3), move |_ev, _flags| {
+    let _ev = base.add_interval(Duration::from_secs(3), move |_ev, _flags| {
         a += 1;
-        println!("callback: rust closure (interval: 3s, count: {}, flags: {:?})", a, _flags);
+        println!(
+            "callback: rust closure (interval: 3s, count: {}, flags: {:?})",
+            a, _flags
+        );
     });
 
     if let Some(duration) = run_duration {
         println!("Running for {}s", duration.as_secs());
-        libevent.run_timeout(duration);
+        base.run_timeout(duration);
     } else {
         // Do a few run_timeouts before running forever
         for _count in 1..=3 {
             let now = std::time::Instant::now();
-            libevent.run_timeout(Duration::from_secs(5));
+            base.run_timeout(Duration::from_secs(5));
 
             let elapsed = now.elapsed();
 
@@ -57,11 +56,11 @@ fn main() {
         }
 
         println!("Running forever");
-        libevent.run();
+        base.run();
     }
 
     // TODO: expose base_free from libevent-rs
-    let ret = unsafe { libevent.with_base(|base| ffi::helloc_destroy(base)) };
+    let ret = unsafe { base.with_base(|base| ffi::helloc_destroy(base)) };
     assert_eq!(ret, 0);
 
     println!("Exiting");
