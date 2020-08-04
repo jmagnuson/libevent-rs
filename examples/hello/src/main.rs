@@ -1,4 +1,4 @@
-use libevent::Base;
+use libevent::{Base, Interval};
 use std::time::Duration;
 
 pub mod ffi;
@@ -27,19 +27,47 @@ fn main() {
     let ret = unsafe { ffi::helloc_init(base.as_raw().as_ptr()) };
     assert_eq!(ret, 0);
 
-    let ev = unsafe { base.event_new(None, libevent::EventFlags::PERSIST, hello_callback, None) };
+    let ev = base
+        .event_new(None, libevent::EventFlags::PERSIST, hello_callback, None)
+        .expect("Faled to allocate event");
 
-    let _ = unsafe { base.event_add(&ev, Some(Duration::from_secs(2))) };
+    base.event_add(ev, Some(Duration::from_secs(2)));
 
-    let mut a: usize = 0;
+    let mut b: usize = 0;
+    let ev = Interval::new(Duration::from_secs(2));
+    let mut ev_handle = Some(
+        base.spawn_local(ev, move |_ev| {
+            b += 1;
+            println!(
+                "callback (b): rust closure (interval: 2s, count: {}, flags: {:?})",
+                b, "TIMEOUT"
+            );
+        })
+        .unwrap_or_else(|e| panic!("{:?}", e)),
+    );
 
-    let _ev = base.add_interval(Duration::from_secs(3), move |_ev, _flags| {
-        a += 1;
-        println!(
-            "callback: rust closure (interval: 3s, count: {}, flags: {:?})",
-            a, _flags
-        );
-    });
+    {
+        let mut a: usize = 0;
+
+        let ev = Interval::new(Duration::from_secs(3));
+
+        base.spawn(ev, move |_ev| {
+            a += 1;
+            println!(
+                "callback: rust closure (interval: 3s, count: {}, flags: {:?})",
+                a, "TIMEOUT"
+            );
+
+            if a > 3 {
+                println!("callback: rust closure (STOPPING)");
+                _ev.stop().unwrap_or_else(|e| panic!("{:?}", e));
+
+                // drop the event handle for b
+                let _ = ev_handle.take();
+            }
+        })
+        .unwrap_or_else(|e| panic!("{:?}", e));
+    }
 
     if let Some(duration) = run_duration {
         println!("Running for {}s", duration.as_secs());
