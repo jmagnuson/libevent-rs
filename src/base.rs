@@ -30,12 +30,9 @@ pub struct Base {
 impl Base {
     pub fn new() -> Result<Self, io::Error> {
         let base = unsafe { libevent_sys::event_base_new() };
-        unsafe { Self::from_raw(base) }
-    }
 
-    pub unsafe fn from_raw(base: *mut libevent_sys::event_base) -> Result<Self, io::Error> {
         if let Some(base) = NonNull::new(base) {
-            Ok(Base { base })
+            Ok(unsafe { Self::from_raw(base) })
         } else {
             Err(io::Error::new(
                 io::ErrorKind::Other,
@@ -44,12 +41,12 @@ impl Base {
         }
     }
 
-    pub fn as_inner(&self) -> *const libevent_sys::event_base {
-        self.base.as_ptr() as *const libevent_sys::event_base
+    pub unsafe fn from_raw(base: NonNull<libevent_sys::event_base>) -> Self {
+        Base { base }
     }
 
-    pub fn as_inner_mut(&mut self) -> *mut libevent_sys::event_base {
-        unsafe { self.base.as_mut() }
+    pub unsafe fn as_raw(&self) -> NonNull<libevent_sys::event_base> {
+        self.base
     }
 
     pub fn loop_(&self, flags: LoopFlags) -> ExitReason {
@@ -83,16 +80,16 @@ impl Base {
         let tv = to_timeval(timeout);
         unsafe {
             let tv_cast = &tv as *const libevent_sys::timeval;
-            libevent_sys::event_base_loopexit(self.base.as_ptr(), tv_cast) as i32
+            libevent_sys::event_base_loopexit(self.as_raw().as_ptr(), tv_cast) as i32
         }
     }
 
     pub fn loopbreak(&self) -> i32 {
-        unsafe { libevent_sys::event_base_loopbreak(self.base.as_ptr()) as i32 }
+        unsafe { libevent_sys::event_base_loopbreak(self.as_raw().as_ptr()) as i32 }
     }
 
     pub fn loopcontinue(&self) -> i32 {
-        unsafe { libevent_sys::event_base_loopcontinue(self.base.as_ptr()) as i32 }
+        unsafe { libevent_sys::event_base_loopcontinue(self.as_raw().as_ptr()) as i32 }
     }
 
     pub fn event_new(
@@ -118,7 +115,7 @@ impl Base {
 
         let inner = unsafe {
             libevent_sys::event_new(
-                self.as_inner_mut(),
+                self.as_raw().as_ptr(),
                 fd,
                 flags.bits() as c_short,
                 Some(callback),
@@ -154,7 +151,7 @@ impl Base {
         unsafe {
             libevent_sys::event_assign(
                 ev.inner.lock().unwrap().inner.unwrap().as_ptr(),
-                self.as_inner_mut(),
+                self.as_raw().as_ptr(),
                 fd,
                 flags.bits() as c_short,
                 Some(callback),

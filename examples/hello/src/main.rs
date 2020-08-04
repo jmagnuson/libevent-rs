@@ -24,7 +24,7 @@ fn main() {
 
     let mut base = Base::new().unwrap_or_else(|e| panic!("{:?}", e));
 
-    let ret = unsafe { base.with_base(|base| ffi::helloc_init(base)) };
+    let ret = unsafe { ffi::helloc_init(base.as_raw().as_ptr()) };
     assert_eq!(ret, 0);
 
     let ev = unsafe { base.event_new(None, libevent::EventFlags::PERSIST, hello_callback, None) };
@@ -60,7 +60,7 @@ fn main() {
     }
 
     // TODO: expose base_free from libevent-rs
-    let ret = unsafe { base.with_base(|base| ffi::helloc_destroy(base)) };
+    let ret = unsafe { ffi::helloc_destroy(base.as_raw().as_ptr()) };
     assert_eq!(ret, 0);
 
     println!("Exiting");

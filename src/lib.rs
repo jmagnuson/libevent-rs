@@ -31,17 +31,6 @@ extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: Ev
 }
 
 impl Base {
-    // TODO: This should be raw_base, and EventBase should prevent having to use raw altogether.
-    /// # Safety
-    /// Exposes the event_base handle, which can be used to make any sort of
-    /// modifications to the event loop without going through proper checks.
-    pub unsafe fn with_base<F>(&mut self, f: F) -> c_int
-    where
-        F: Fn(*mut libevent_sys::event_base) -> c_int,
-    {
-        f(self.as_inner_mut())
-    }
-
     /// Turns the libevent base once.
     // TODO: any way to show if work was done?
     pub fn turn(&self) -> ExitReason {
