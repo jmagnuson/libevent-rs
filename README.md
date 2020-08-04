@@ -5,21 +5,20 @@ Rust bindings to the [libevent] async I/O framework.
 ## Example
 
 ```rust,no_run
-use libevent::Libevent;
+use libevent::{Base, Timer};
 
-let libevent = Libevent::new()?;
+let mut base = Base::new();
 
 let mut count: usize = 0;
 
-libevent.add_interval(
-    Duration::from_secs(1),
-    move |_event, _flags| {
-        count += 1;
-        println!("count: {}", count);
-    }
-)?;
+let timer = Timer::new(Duration::from_secs(1));
 
-libevent.run();
+base.spawn(timer, move |_event| {
+    count += 1;
+    println!("count: {}", count);
+})?;
+
+base.run();
 ```
 
 ### System Requirements
