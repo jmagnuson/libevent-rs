@@ -22,12 +22,12 @@ fn to_timeval(duration: Duration) -> libevent_sys::timeval {
     }
 }
 
-pub struct EventBase {
+pub struct Base {
     base: NonNull<libevent_sys::event_base>,
 }
 
 /// The handle that abstracts over libevent's API in Rust.
-impl EventBase {
+impl Base {
     pub fn new() -> Result<Self, io::Error> {
         let base = unsafe { libevent_sys::event_base_new() };
         unsafe { Self::from_raw(base) }
@@ -35,7 +35,7 @@ impl EventBase {
 
     pub unsafe fn from_raw(base: *mut libevent_sys::event_base) -> Result<Self, io::Error> {
         if let Some(base) = NonNull::new(base) {
-            Ok(EventBase { base })
+            Ok(Base { base })
         } else {
             Err(io::Error::new(
                 io::ErrorKind::Other,
@@ -176,7 +176,7 @@ impl EventBase {
     }
 }
 
-unsafe impl Send for EventBase {}
+unsafe impl Send for Base {}
 
 pub enum ExitReason {
     GotExit,

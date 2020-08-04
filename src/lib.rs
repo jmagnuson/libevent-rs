@@ -31,16 +31,16 @@ extern "C" fn handle_wrapped_callback(_fd: EvutilSocket, event: c_short, ctx: Ev
 }
 
 pub struct Libevent {
-    base: EventBase,
+    base: Base,
 }
 
 impl Libevent {
     pub fn new() -> Result<Self, io::Error> {
-        EventBase::new().map(|base| Libevent { base })
+        Base::new().map(|base| Libevent { base })
     }
 
     pub unsafe fn from_raw(base: *mut libevent_sys::event_base) -> Result<Self, io::Error> {
-        let base = EventBase::from_raw(base)?;
+        let base = Base::from_raw(base)?;
         Ok(Libevent { base })
     }
 
@@ -58,14 +58,14 @@ impl Libevent {
     /// # Safety
     /// Exposes the event_base handle, which can be used to make any sort of
     /// modifications to the event loop without going through proper checks.
-    pub unsafe fn base(&self) -> &EventBase {
+    pub unsafe fn base(&self) -> &Base {
         &self.base
     }
 
     /// # Safety
     /// Exposes the event_base handle, which can be used to make any sort of
     /// modifications to the event loop without going through proper checks.
-    pub unsafe fn base_mut(&mut self) -> &mut EventBase {
+    pub unsafe fn base_mut(&mut self) -> &mut Base {
         &mut self.base
     }
 
