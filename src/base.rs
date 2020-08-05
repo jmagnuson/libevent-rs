@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use bitflags::bitflags;
-use libevent_sys;
 use std::io;
 use std::os::raw::{c_int, c_short, c_void};
 use std::ptr::NonNull;
@@ -9,12 +8,19 @@ use std::time::Duration;
 
 use super::event::*;
 
+/// A file descriptor in libevent.
 pub type EvutilSocket = c_int;
 
+/// The event callback function in libevent.
 pub type EventCallbackFn = extern "C" fn(EvutilSocket, EventCallbackFlags, EventCallbackCtx);
+
+/// The event callback's raw context type (void pointer).
 pub type EventCallbackCtx = *mut c_void;
+
+/// The event callback's raw flags type.
 pub type EventCallbackFlags = c_short;
 
+/// Convenience function for mapping Rust's `Duration` to libevent's `timeval`.
 fn to_timeval(duration: Duration) -> libevent_sys::timeval {
     libevent_sys::timeval {
         tv_sec: duration.as_secs() as _,
@@ -22,12 +28,15 @@ fn to_timeval(duration: Duration) -> libevent_sys::timeval {
     }
 }
 
+/// Wrapper for libevent's `event_base` which is responsible for executing
+/// associated events.
 pub struct Base {
     base: NonNull<libevent_sys::event_base>,
 }
 
 /// The handle that abstracts over libevent's API in Rust.
 impl Base {
+    /// Creates a new instance of `Base`.
     pub fn new() -> Result<Self, io::Error> {
         let base = unsafe { libevent_sys::event_base_new() };
 
@@ -41,14 +50,31 @@ impl Base {
         }
     }
 
+    /// Creates a new instance of `Base` using a raw, non-null `event_base`
+    /// pointer.
+    ///
+    /// # Safety
+    ///
+    /// This function expects a non-null pointer, and thus does no such checks
+    /// internally. Thus the caller is responsible for checking the
+    /// `event_base` validity.
     pub unsafe fn from_raw(base: NonNull<libevent_sys::event_base>) -> Self {
         Base { base }
     }
 
+    /// Exposes the raw, non-null `event_base` pointer.
+    ///
+    /// # Safety
+    ///
+    /// This function returns a valid, non-null `event_base` pointer which by
+    /// itself is safe. However, this function serves as an escape hatch to do
+    /// unsafe things.
     pub unsafe fn as_raw(&self) -> NonNull<libevent_sys::event_base> {
         self.base
     }
 
+    /// Wrapper for libevent's `event_base_loop`, which runs the event loop in
+    /// a manner defined by the `LoopFlags` input.
     pub fn loop_(&self, flags: LoopFlags) -> ExitReason {
         let exit_code = unsafe {
             libevent_sys::event_base_loop(self.base.as_ptr(), flags.bits() as i32) as i32
@@ -76,6 +102,8 @@ impl Base {
         }
     }
 
+    /// Wrapper for libevent's `event_base_loopexit`, which tells the running
+    /// event loop to exit after a specified `Duration`.
     pub fn loopexit(&self, timeout: Duration) -> i32 {
         let tv = to_timeval(timeout);
         unsafe {
@@ -84,14 +112,20 @@ impl Base {
         }
     }
 
+    /// Wrapper for libevent's `event_base_loopbreak`, which tells the running
+    /// event loop to break immediately.
     pub fn loopbreak(&self) -> i32 {
         unsafe { libevent_sys::event_base_loopbreak(self.as_raw().as_ptr()) as i32 }
     }
 
+    /// Wrapper for libevent's `event_base_loopcontinue`, which tells the
+    /// running event loop to resume searching for active events.
     pub fn loopcontinue(&self) -> i32 {
         unsafe { libevent_sys::event_base_loopcontinue(self.as_raw().as_ptr()) as i32 }
     }
 
+    /// Wrapper for libevent's `event_new`, which allocates and initializes a
+    /// new `event` with the given parameters.
     pub fn event_new(
         &mut self,
         fd: Option<EvutilSocket>,
@@ -126,6 +160,8 @@ impl Base {
         EventHandle::from_raw_unchecked(inner)
     }
 
+    /// Wrapper for libevent's `event_new`, which initializes a pre-allocated
+    /// `event` with the given parameters.
     pub fn event_assign(
         &mut self,
         ev: &mut EventHandle,
@@ -160,6 +196,8 @@ impl Base {
         }
     }
 
+    /// Wrapper for libevent's `event_add`, which activates an initialized
+    /// `event` for a pre-defined `Base` and a given timeout interval.
     pub fn event_add(&self, event: &EventHandle, timeout: Option<Duration>) -> c_int {
         unsafe {
             let p = event.inner.lock().unwrap().inner.unwrap().as_ptr();
@@ -175,6 +213,8 @@ impl Base {
 
 unsafe impl Send for Base {}
 
+/// Enumerates all possible reasons that the event loop may have stopped
+/// running.
 pub enum ExitReason {
     GotExit,
     GotBreak,
@@ -184,6 +224,7 @@ pub enum ExitReason {
 }
 
 bitflags! {
+    /// Flags given to the event loop to alter its behavior.
     pub struct LoopFlags: u32 {
         const ONCE = libevent_sys::EVLOOP_ONCE;
         const NONBLOCK = libevent_sys::EVLOOP_NONBLOCK;
@@ -192,6 +233,9 @@ bitflags! {
 }
 
 bitflags! {
+    /// Flags used both as inputs to define activation characteristics of an event,
+    /// as well as an output given in the callback as to what triggered event
+    /// activation.
     pub struct EventFlags: u32 {
         const TIMEOUT = libevent_sys::EV_TIMEOUT;
         const READ = libevent_sys::EV_READ;
