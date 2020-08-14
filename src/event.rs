@@ -62,7 +62,7 @@ impl<T> EventInner<T> {
     }
 
     /// Unsafe because other parts rely on `*mut event` being not-null.
-    pub(crate) unsafe fn as_raw(&self) -> NonNull<libevent_sys::event> {
+    pub unsafe fn as_raw(&self) -> NonNull<libevent_sys::event> {
         self.inner
     }
 
