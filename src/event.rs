@@ -9,10 +9,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-enum EventError {
-    StopFailed,
-}
-
 /// The primitive event-type which is created with [Event::new] using a
 /// a non-negative `RawFd`.
 ///
@@ -100,13 +96,6 @@ impl<T> EventInner<T> {
     }
 }
 
-impl EventInner<Fd> {
-    pub fn fd(&self) -> RawFd {
-        // Pointer was verified on creation, so don't propagate unsafe.
-        unsafe { libevent_sys::event_get_fd(self.as_raw().as_ptr()) }
-    }
-}
-
 // Activation & Synchronization variants
 
 /// Inactive event, which defines an event-type `T`.
@@ -147,6 +136,7 @@ pub struct Event<S> {
 }
 
 impl<S> Event<S> {
+    #![allow(dead_code)]
     #[inline]
     pub(crate) fn in_callback(&self) -> bool {
         self.in_callback.load(Ordering::Relaxed)
