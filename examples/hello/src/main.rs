@@ -1,4 +1,4 @@
-use libevent::Libevent;
+use libevent::{Base, Interval};
 use std::time::Duration;
 
 pub mod ffi;
@@ -22,34 +22,61 @@ fn main() {
         )
     });
 
-    let mut libevent = Libevent::new().unwrap_or_else(|e| panic!("{:?}", e));
+    let mut base = Base::new().unwrap_or_else(|e| panic!("{:?}", e));
 
-    let ret = unsafe { libevent.with_base(|base| ffi::helloc_init(base)) };
+    let ret = unsafe { ffi::helloc_init(base.as_raw().as_ptr()) };
     assert_eq!(ret, 0);
 
-    let ev = unsafe {
-        libevent
-            .base_mut()
-            .event_new(None, libevent::EventFlags::PERSIST, hello_callback, None)
-    };
+    let ev = base
+        .event_new(None, libevent::EventFlags::PERSIST, hello_callback, None)
+        .expect("Faled to allocate event");
 
-    let _ = unsafe { libevent.base().event_add(&ev, Some(Duration::from_secs(2))) };
+    base.event_add(ev, Some(Duration::from_secs(2)));
 
-    let mut a: usize = 0;
+    let mut b: usize = 0;
+    let ev = Interval::new(Duration::from_secs(2));
+    let mut ev_handle = Some(
+        base.spawn_local(ev, move |_ev| {
+            b += 1;
+            println!(
+                "callback (b): rust closure (interval: 2s, count: {}, flags: {:?})",
+                b, "TIMEOUT"
+            );
+        })
+        .unwrap_or_else(|e| panic!("{:?}", e)),
+    );
 
-    let _ev = libevent.add_interval(Duration::from_secs(3), move |_ev, _flags| {
-        a += 1;
-        println!("callback: rust closure (interval: 3s, count: {}, flags: {:?})", a, _flags);
-    });
+    {
+        let mut a: usize = 0;
+
+        let ev = Interval::new(Duration::from_secs(3));
+
+        base.spawn(ev, move |_ev| {
+            a += 1;
+            println!(
+                "callback: rust closure (interval: 3s, count: {}, flags: {:?})",
+                a, "TIMEOUT"
+            );
+
+            if a > 3 {
+                println!("callback: rust closure (STOPPING)");
+                _ev.stop().unwrap_or_else(|e| panic!("{:?}", e));
+
+                // drop the event handle for b
+                let _ = ev_handle.take();
+            }
+        })
+        .unwrap_or_else(|e| panic!("{:?}", e));
+    }
 
     if let Some(duration) = run_duration {
         println!("Running for {}s", duration.as_secs());
-        libevent.run_timeout(duration);
+        base.run_timeout(duration);
     } else {
         // Do a few run_timeouts before running forever
         for _count in 1..=3 {
             let now = std::time::Instant::now();
-            libevent.run_timeout(Duration::from_secs(5));
+            base.run_timeout(Duration::from_secs(5));
 
             let elapsed = now.elapsed();
 
@@ -57,11 +84,11 @@ fn main() {
         }
 
         println!("Running forever");
-        libevent.run();
+        base.run();
     }
 
     // TODO: expose base_free from libevent-rs
-    let ret = unsafe { libevent.with_base(|base| ffi::helloc_destroy(base)) };
+    let ret = unsafe { ffi::helloc_destroy(base.as_raw().as_ptr()) };
     assert_eq!(ret, 0);
 
     println!("Exiting");
