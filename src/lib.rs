@@ -1,4 +1,6 @@
-#![allow(dead_code)]
+//! Rust bindings to the [libevent] async I/O framework.
+//!
+//! [libevent]: https://libevent.org/
 
 use std::time::Duration;
 
