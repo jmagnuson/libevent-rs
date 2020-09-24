@@ -1,11 +1,9 @@
 language: rust
+os: linux
+dist: bionic
 rust:
+  - 1.35.0 # msrv
   - stable
-
-jobs:
-  include:
-    - os: linux
-      dist: bionic
 
 addons:
   apt:
