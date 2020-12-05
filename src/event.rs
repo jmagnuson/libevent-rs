@@ -2,7 +2,7 @@ use crate::EventFlags;
 use std::cell::RefCell;
 use std::io;
 use std::marker::PhantomData;
-use std::os::unix::io::RawFd;
+use std::os::unix::io::{FromRawFd, RawFd};
 use std::ptr::NonNull;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -324,6 +324,12 @@ impl<T> Drop for EventInner<T> {
 /// libevent passes into the callback.
 pub trait Exec<S, F> {
     fn exec(ev: &mut Event<S>, fd: RawFd, flags: EventFlags, cb: &mut F);
+}
+
+impl<S, F: FnMut(&mut Event<S>, T, EventFlags), T: FromRawFd> Exec<S, F> for T {
+    fn exec(ev: &mut Event<S>, fd: RawFd, flags: EventFlags, cb: &mut F) {
+        cb(ev, unsafe { T::from_raw_fd(fd) } , flags)
+    }
 }
 
 impl<S, F: FnMut(&mut Event<S>, RawFd, EventFlags)> Exec<S, F> for Fd {
