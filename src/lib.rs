@@ -2,6 +2,9 @@
 //!
 //! [libevent]: https://libevent.org/
 
+
+#![feature(generic_associated_types)]
+
 use std::time::Duration;
 
 mod event;
@@ -11,6 +14,8 @@ mod base;
 pub use base::{
     Base, EventCallbackCtx, EventCallbackFlags, EventFlags, EvutilSocket, ExitReason, LoopFlags,
 };
+
+mod lock;
 
 /// The context passed into `handle_wrapped_callback`, which handles event-type
 /// specific metadata for trampolining into the user-supplied closure.
