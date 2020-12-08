@@ -6,12 +6,12 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 
-trait LockFamily {
+pub(crate) trait LockFamily {
     type Lock<T>: WithInner/*<T>*/;
     fn new<T>(value: T) -> Self::Lock<T>;
 }
 
-trait WithInner/*<T>*/ {
+pub(crate) trait WithInner/*<T>*/ {
     //type InnerFun<U>: FnOnce(&mut T) -> U;
     //type Out;
     type In;
@@ -36,7 +36,7 @@ impl<T> WithInner/*<T>*/ for Arc<Mutex<T>> {
     }
 }
 
-struct ArcMutexFamily;
+pub(crate) struct ArcMutexFamily;
 
 impl LockFamily for ArcMutexFamily {
     type Lock<T> = Arc<Mutex<T>>;
@@ -45,7 +45,7 @@ impl LockFamily for ArcMutexFamily {
     }
 }
 
-struct RcRefCellFamily;
+pub(crate) struct RcRefCellFamily;
 
 impl LockFamily for RcRefCellFamily {
     type Lock<T> = Rc<RefCell<T>>;

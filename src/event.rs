@@ -9,6 +9,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::lock::*;
+
 /// The primitive event-type which is created with [Event::new] using a
 /// a non-negative `RawFd`.
 ///
@@ -39,13 +41,12 @@ impl Oneshot {
 
 /// Internal handle to the raw `event` and other metadata.
 #[derive(Debug)]
-pub(crate) struct EventInner<T> {
+pub(crate) struct EventInner {
     inner: NonNull<libevent_sys::event>,
     finalizer: libevent_sys::event_finalize_callback_fn,
-    _phantom: PhantomData<T>,
 }
 
-impl<T> EventInner<T> {
+impl EventInner {
     /// Creates a new `EventInner` given a raw `event`, and a "finalizer"
     /// function which helps in `Drop` teardown.
     // TODO: unsafe?
@@ -56,7 +57,6 @@ impl<T> EventInner<T> {
         EventInner {
             inner,
             finalizer,
-            _phantom: Default::default(),
         }
     }
 
@@ -113,17 +113,17 @@ pub struct Inactive<T> {
 /// Callback-local synchronization type used by `Base::spawn`.
 #[derive(Debug)]
 #[doc(hidden)]
-pub struct Internal<T>(pub(crate) EventInner<T>);
+pub struct Internal<T>(pub(crate) EventInner, PhantomData<T>);
 
 /// Thread-local synchronization type used by `Base::spawn_local`.
 #[derive(Clone, Debug)]
 #[doc(hidden)]
-pub struct Local<T>(pub(crate) Rc<RefCell<EventInner<T>>>);
+pub struct Local<T>(pub(crate) Rc<RefCell<EventInner>>, PhantomData<T>);
 
 /// Downgraded version of `Local` which does not count toward ownership.
 #[derive(Debug)]
 #[doc(hidden)]
-pub struct LocalWeak<T>(pub(crate) std::rc::Weak<RefCell<EventInner<T>>>);
+pub struct LocalWeak<T>(pub(crate) std::rc::Weak<RefCell<EventInner>>, PhantomData<T>);
 
 /// The exposed event handle which wraps the raw `event` with a defined
 /// synchronization method and contains other necessary metadata.
@@ -224,7 +224,7 @@ impl<T> Downgrade for Local<T> {
     type Weak = LocalWeak<T>;
 
     fn downgrade(&self) -> Self::Weak {
-        LocalWeak(Rc::downgrade(&self.0))
+        LocalWeak(Rc::downgrade(&self.0), self.1)
     }
 }
 
@@ -240,30 +240,45 @@ impl<S: Downgrade> Downgrade for Event<S> {
     }
 }
 
-impl<T> From<EventInner<T>> for Event<Internal<T>> {
-    fn from(inner: EventInner<T>) -> Self {
+impl<T> From<EventInner> for Event<Internal<T>> {
+    fn from(inner: EventInner) -> Self {
         Event {
-            inner: Internal(inner),
+            inner: Internal(inner, PhantomData::default()),
             in_callback: Arc::new(AtomicBool::new(false)),
             stopped: Arc::new(AtomicBool::new(false)),
         }
     }
 }
 
-impl<T> From<EventInner<T>> for Event<Local<T>> {
-    fn from(inner: EventInner<T>) -> Self {
+impl<T> From<EventInner> for Event<Local<T>> {
+    fn from(inner: EventInner) -> Self {
         Event {
-            inner: Local(Rc::new(RefCell::new(inner))),
+            inner: Local(Rc::new(RefCell::new(inner)), PhantomData::default()),
             in_callback: Arc::new(AtomicBool::new(false)),
             stopped: Arc::new(AtomicBool::new(false)),
         }
     }
 }
+
+trait EventMut {
+    type EventType;
+
+    fn stop(&mut self) -> io::Result<()>;
+}
+
+impl<E: WithInner<In=Self::EventType>> EventMut for E {
+    type EventType = EventInner;
+
+    fn stop(&mut self) -> io::Result<()> {
+        self.with_inner(|inner| inner.stop())
+    }
+}
+
 
 impl<T> Event<Internal<T>> {
     fn with_inner<F, O>(&mut self, f: F) -> O
     where
-        F: Fn(&mut EventInner<T>) -> O,
+        F: Fn(&mut EventInner) -> O,
     {
         let ev = &mut self.inner.0;
         f(ev)
@@ -278,7 +293,7 @@ impl<T> Event<Internal<T>> {
 impl<T> Event<Local<T>> {
     fn with_inner<F, O>(&self, f: F) -> O
     where
-        F: Fn(&mut EventInner<T>) -> O,
+        F: Fn(&mut EventInner) -> O,
     {
         let mut ev = self.inner.0.borrow_mut();
         f(&mut *ev)
@@ -293,7 +308,7 @@ impl<T> Event<Local<T>> {
 impl<T> Event<LocalWeak<T>> {
     fn with_inner<F, O>(&self, f: F) -> O
     where
-        F: Fn(&mut EventInner<T>) -> O,
+        F: Fn(&mut EventInner) -> O,
     {
         let upgraded = self.inner.0.upgrade().unwrap();
         let mut ev = upgraded.borrow_mut();
@@ -306,7 +321,7 @@ impl<T> Event<LocalWeak<T>> {
     }
 }
 
-impl<T> Drop for EventInner<T> {
+impl Drop for EventInner {
     fn drop(&mut self) {
         self.drop_context();
 
