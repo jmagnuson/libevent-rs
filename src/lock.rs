@@ -7,8 +7,8 @@ use std::cell::RefCell;
 
 
 trait LockFamily {
-    type Pointer<T>: WithInner/*<T>*/;
-    fn new<T>(value: T) -> Self::Pointer<T>;
+    type Lock<T>: WithInner/*<T>*/;
+    fn new<T>(value: T) -> Self::Lock<T>;
 }
 
 trait WithInner/*<T>*/ {
@@ -39,8 +39,8 @@ impl<T> WithInner/*<T>*/ for Arc<Mutex<T>> {
 struct ArcMutexFamily;
 
 impl LockFamily for ArcMutexFamily {
-    type Pointer<T> = Arc<Mutex<T>>;
-    fn new<T>(value: T) -> Self::Pointer<T> {
+    type Lock<T> = Arc<Mutex<T>>;
+    fn new<T>(value: T) -> Self::Lock<T> {
         Arc::new(Mutex::new(value))
     }
 }
@@ -48,8 +48,8 @@ impl LockFamily for ArcMutexFamily {
 struct RcRefCellFamily;
 
 impl LockFamily for RcRefCellFamily {
-    type Pointer<T> = Rc<RefCell<T>>;
-    fn new<T>(value: T) -> Self::Pointer<T> {
+    type Lock<T> = Rc<RefCell<T>>;
+    fn new<T>(value: T) -> Self::Lock<T> {
         Rc::new(RefCell::new(value))
     }
 }
