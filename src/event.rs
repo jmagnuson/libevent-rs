@@ -276,48 +276,25 @@ impl<E: WithInner<In=Self::EventType>> EventMut for E {
 
 
 impl<T> Event<Internal<T>> {
-    fn with_inner<F, O>(&mut self, f: F) -> O
-    where
-        F: Fn(&mut EventInner) -> O,
-    {
-        let ev = &mut self.inner.0;
-        f(ev)
-    }
-
     pub fn stop(&mut self) -> io::Result<()> {
         self.set_stopped(true);
-        self.with_inner(|inner| inner.stop())
+        self.inner.0.stop()
     }
 }
 
 impl<T> Event<Local<T>> {
-    fn with_inner<F, O>(&self, f: F) -> O
-    where
-        F: Fn(&mut EventInner) -> O,
-    {
-        let mut ev = self.inner.0.borrow_mut();
-        f(&mut *ev)
-    }
-
     pub fn stop(&mut self) -> io::Result<()> {
         self.set_stopped(true);
-        self.with_inner(|inner| inner.stop())
+        self.inner.0.with_inner(|inner| inner.stop())
     }
 }
 
 impl<T> Event<LocalWeak<T>> {
-    fn with_inner<F, O>(&self, f: F) -> O
-    where
-        F: Fn(&mut EventInner) -> O,
-    {
-        let upgraded = self.inner.0.upgrade().unwrap();
-        let mut ev = upgraded.borrow_mut();
-        f(&mut *ev)
-    }
-
     pub fn stop(&mut self) -> io::Result<()> {
         self.set_stopped(true);
-        self.with_inner(|inner| inner.stop())
+        self.inner.0.upgrade()
+            .expect("todo: make this an error")
+            .with_inner(|inner| inner.stop())
     }
 }
 
