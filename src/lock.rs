@@ -1,32 +1,25 @@
-//#![feature(generic_associated_types)]
-
-//use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::rc::Rc;
 use std::cell::RefCell;
 
 
 pub(crate) trait LockFamily {
-    type Lock<T>: WithInner/*<T>*/;
+    type Lock<T>: WithInner;
     fn new<T>(value: T) -> Self::Lock<T>;
 }
 
-pub(crate) trait WithInner/*<T>*/ {
-    //type InnerFun<U>: FnOnce(&mut T) -> U;
-    //type Out;
+pub(crate) trait WithInner {
     type In;
-    //type Out;
 
-    fn with_inner<F, U: Sized>(&self, f: F) -> U /*Self::Out*/
+    fn with_inner<F, U: Sized>(&self, f: F) -> U
     where
-        F: FnOnce(&mut /*T*/ Self::In) -> /*Self::Out*/ U;
+        F: FnOnce(&mut Self::In) -> U;
 }
 
-impl<T> WithInner/*<T>*/ for Arc<Mutex<T>> {
-    //type InnerFun<U>: FnOnce(&mut T) -> U;
+impl<T> WithInner for Arc<Mutex<T>> {
     type In = T;
 
-    fn with_inner<F, U: Sized>(&self, f: F /*Self::InnerFun<U>*/) -> U
+    fn with_inner<F, U: Sized>(&self, f: F) -> U
     where
         F: FnOnce(&mut T) -> U,
     {
@@ -54,11 +47,10 @@ impl LockFamily for RcRefCellFamily {
     }
 }
 
-impl<T> WithInner/*<T>*/ for Rc<RefCell<T>> {
-    //type InnerFun<U>: FnOnce(&mut T) -> U;
+impl<T> WithInner for Rc<RefCell<T>> {
     type In = T;
 
-    fn with_inner<F, U: Sized>(&self, f: F /*Self::InnerFun<U>*/) -> U
+    fn with_inner<F, U: Sized>(&self, f: F) -> U
     where
         F: FnOnce(&mut T) -> U,
     {
@@ -67,8 +59,3 @@ impl<T> WithInner/*<T>*/ for Rc<RefCell<T>> {
         u
     }
 }
-
-
-/*struct Foo<P: LockFamily> {
-    bar: P::Pointer<String>,
-}*/
