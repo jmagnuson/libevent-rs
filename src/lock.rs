@@ -59,3 +59,26 @@ impl<T> Downgrade for Rc<RefCell<T>> {
         Rc::downgrade(&self)
     }
 }
+
+/// Abstraction over "upgradeable" types (i.e., `rc::Weak` and `sync::Weak`).
+pub(crate) trait Upgrade {
+    type Pointer;
+
+    fn upgrade(&self) -> Option<Self::Pointer>;
+}
+
+impl<T> Upgrade for WeakArc<Mutex<T>> {
+    type Pointer = Arc<Mutex<T>>;
+
+    fn upgrade(&self) -> Option<Self::Pointer> {
+        WeakArc::upgrade(&self)
+    }
+}
+
+impl<T> Upgrade for WeakRc<RefCell<T>> {
+    type Pointer = Rc<RefCell<T>>;
+
+    fn upgrade(&self) -> Option<Self::Pointer> {
+        WeakRc::upgrade(&self)
+    }
+}
