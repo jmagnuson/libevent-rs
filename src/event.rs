@@ -213,13 +213,6 @@ impl<S: Clone> Clone for Event<S> {
     }
 }
 
-/// Abstraction over "downgradable" types (i.e., `Rc` and `Arc`).
-pub(crate) trait Downgrade {
-    type Weak;
-
-    fn downgrade(&self) -> Self::Weak;
-}
-
 impl<T> Downgrade for Local<T> {
     type Weak = LocalWeak<T>;
 

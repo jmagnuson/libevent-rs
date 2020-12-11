@@ -7,6 +7,7 @@ use std::ptr::NonNull;
 use std::time::Duration;
 
 use super::event::*;
+use crate::lock::Downgrade;
 use crate::EventCallbackWrapper;
 
 /// A file descriptor in libevent.
