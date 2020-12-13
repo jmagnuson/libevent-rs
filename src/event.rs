@@ -254,19 +254,14 @@ impl<T> From<EventInner> for Event<Local<T>> {
 }
 
 trait EventMut {
-    type EventType;
-
     fn stop(&mut self) -> io::Result<()>;
 }
 
-impl<E: WithInner<In=Self::EventType>> EventMut for E {
-    type EventType = EventInner;
-
+impl<E: WithInner<In=EventInner>> EventMut for E {
     fn stop(&mut self) -> io::Result<()> {
         self.with_inner(|inner| inner.stop())
     }
 }
-
 
 impl<T> Event<Internal<T>> {
     pub fn stop(&mut self) -> io::Result<()> {
