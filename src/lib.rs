@@ -12,6 +12,9 @@ pub use base::{
     Base, EventCallbackCtx, EventCallbackFlags, EventFlags, EvutilSocket, ExitReason, LoopFlags,
 };
 
+#[cfg(feature = "tokio_backend")]
+mod backend;
+
 /// The context passed into `handle_wrapped_callback`, which handles event-type
 /// specific metadata for trampolining into the user-supplied closure.
 pub(crate) struct EventCallbackWrapper<S, T, F> {

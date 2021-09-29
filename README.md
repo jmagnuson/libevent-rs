@@ -43,6 +43,23 @@ base.run();
   when `buildtime_bindgen` is not enabled, and it is only applicable in this
   case.
 
+## Tokio Backend for libevent
+
+A optional tokio backend for handling libevent I/O and signal readiness is
+optionally provided. It is not patched into libevent directly, but is
+substituted at run time with a call to `libevent::inject_tokio`. The primary
+motivation for this feature is to allow native tokio and libevent tasks to
+co-exist with a single event loop on the same thread. This feature is
+especially useful when gradually migrating a C/libevent project to Rust/tokio
+when use of FFI between the C and Rust code prevents running the event loops
+on separate threads.
+
+## Samples
+
+Versions of libevent samples modified to make use of an injected tokio
+backend are located in the ./sample directory. There is a Makefile provided
+for building these C programs linked to the Rust libevent crate.
+
 ## Minimum Supported Rust Version (MSRV)
 
 This crate is guaranteed to compile on stable Rust 1.35.0 and up. It might compile

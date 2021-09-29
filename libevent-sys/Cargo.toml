@@ -1,9 +1,12 @@
 [package]
 name = "libevent-sys"
-version = "0.2.4"
-authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>",
-           "Jon Magnuson <jon.magnuson@gmail.com>",
-           "Grant Elbert <elbe0046@gmail.com>"]
+version = "0.3.0"
+authors = [
+    "Steven vanZyl <rushsteve1@rushsteve1.us>",
+    "Jon Magnuson <jon.magnuson@gmail.com>",
+    "Grant Elbert <elbe0046@gmail.com>",
+    "Judge Maygarden <jmaygarden@gmail.com>",
+]
 repository = "https://github.com/jmagnuson/libevent-rs"
 edition = "2018"
 readme = "README.md"
@@ -16,14 +19,15 @@ links = "event"
 build = "build.rs"
 
 [features]
-default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen" ]
+default = ["pkgconfig", "openssl", "threading", "buildtime_bindgen"]
 static = []
-pkgconfig = [ "pkg-config" ]
-bundled = [ "static", "cmake" ]
-buildtime_bindgen = [ "bindgen" ]
-openssl = [ "openssl-sys" ]
-openssl_bundled = [ "openssl-sys/vendored", "threading" ]
+pkgconfig = ["pkg-config"]
+bundled = ["static", "cmake"]
+buildtime_bindgen = ["bindgen"]
+openssl = ["openssl-sys"]
+openssl_bundled = ["openssl-sys/vendored", "threading"]
 threading = []
+tokio_backend = ["bundled", "buildtime_bindgen"]
 
 # features for development
 verbose_build = []
@@ -33,6 +37,6 @@ version = "0.9"
 optional = true
 
 [build-dependencies]
-bindgen = { version = "0.53", optional = true }
+bindgen = { version = "0.59", optional = true }
 cmake = { version = "0.1", optional = true }
 pkg-config = { version = "0.3", optional = true }
