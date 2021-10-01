@@ -19,7 +19,7 @@ keywords = ["libevent", "bindings", "async", "io"]
 crate-type = ["lib", "staticlib"]
 
 [workspace]
-members = ['examples/hello']
+members = ["examples/hello"]
 
 [features]
 default = ["pkgconfig", "openssl", "threading", "buildtime_bindgen"]

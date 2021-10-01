@@ -8,7 +8,7 @@ SAMPLES_SRC = \
 	$(SAMPLE_DIR)/dns-example.c \
 	$(SAMPLE_DIR)/event-read-fifo.c \
 	$(SAMPLE_DIR)/hello-world.c \
-	$(SAMPLE_DIR)/time-test.c
+	$(SAMPLE_DIR)/tokio-time-test.c
 SAMPLES_BIN = $(patsubst %.c,%,$(SAMPLES_SRC))
 
 all: $(SAMPLES_BIN)

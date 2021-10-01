@@ -20,6 +20,8 @@ pub struct TokioBackend {
     evsel: libevent_sys::eventop,
     /// Callback functions and configuration for signal handling
     evsigsel: libevent_sys::eventop,
+    /// Notifies the dispatch loop that it should yield back to libevent
+    dispatch_notify: Arc<Notify>,
     /// Tokio runtime for driving I/O and signal events
     runtime: tokio::runtime::Runtime,
     /// Map of active signals to task shutdown notifications
@@ -52,11 +54,13 @@ impl TokioBackend {
             features: 0,
             fdinfo_len: 0,
         };
+        let dispatch_notify = Arc::new(Notify::new());
         let signal_map = HashMap::new();
 
         Self {
             evsel: EVSEL,
             evsigsel: EVSIGSEL,
+            dispatch_notify,
             runtime,
             signal_map,
         }
@@ -90,6 +94,7 @@ impl TokioBackend {
         let is_read = event_is_read(events);
         let is_write = event_is_write(events);
         let _guard = self.runtime.enter();
+        let dispatch_notify = self.dispatch_notify.clone();
 
         match AsyncFd::new(fd) {
             Ok(async_fd) => {
@@ -116,6 +121,7 @@ impl TokioBackend {
 
                                         // If the ready flag is not cleared, then this loop will hang the runtime.
                                         guard.clear_ready();
+                                        dispatch_notify.notify_one();
                                     }
                                     Err(error) => {
                                         tracing::error!(?error);
@@ -134,6 +140,7 @@ impl TokioBackend {
 
                                         // If the ready flag is not cleared, then this loop will hang the runtime.
                                         guard.clear_ready();
+                                        dispatch_notify.notify_one();
                                     }
                                     Err(error) => {
                                         tracing::error!(?error);
@@ -177,10 +184,17 @@ impl TokioBackend {
     /// Drive the tokio runtime with an optional duration for timout events
     #[instrument]
     fn dispatch(&self, timeout: Option<Duration>) {
+        let notify = self.dispatch_notify.clone();
+
         self.runtime.block_on(async move {
             match timeout {
                 // spawned tasks are serviced during the sleep time
-                Some(timeout) => tokio::time::sleep(timeout).await,
+                Some(timeout) => {
+                    tokio::select! {
+                        _ = tokio::time::sleep(timeout) => (),
+                        _ = notify.notified() => (),
+                    }
+                }
                 // at least a single yield is required to advance any pending tasks
                 None => tokio::task::yield_now().await,
             }
@@ -203,7 +217,7 @@ impl TokioBackend {
         nsignal: c_int,
         events: c_short,
     ) -> c_int {
-        let base = BaseWrapper(base as *mut libevent_sys::event_base);
+        let base = BaseWrapper(base);
 
         tracing::debug!("add a signal event");
 
@@ -211,6 +225,7 @@ impl TokioBackend {
         assert!(event_is_signal(events));
 
         let _guard = self.runtime.enter();
+        let dispatch_notify = self.dispatch_notify.clone();
 
         match signal(SignalKind::from_raw(nsignal)) {
             Ok(mut stream) => {
@@ -236,6 +251,7 @@ impl TokioBackend {
                                         // libevent dispatches callbacks with the mapped signal
                                         libevent_sys::evmap_signal_active_(base.0, nsignal, 1);
                                     }
+                                    dispatch_notify.notify_one();
                                 } else {
                                     tracing::error!("signal stream has closed");
                                     break;
