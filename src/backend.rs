@@ -121,7 +121,7 @@ impl TokioBackend {
 
                                         // If the ready flag is not cleared, then this loop will hang the runtime.
                                         guard.clear_ready();
-                                        dispatch_notify.notify_one();
+                                        dispatch_notify.notify_waiters();
                                     }
                                     Err(error) => {
                                         tracing::error!(?error);
@@ -140,7 +140,7 @@ impl TokioBackend {
 
                                         // If the ready flag is not cleared, then this loop will hang the runtime.
                                         guard.clear_ready();
-                                        dispatch_notify.notify_one();
+                                        dispatch_notify.notify_waiters();
                                     }
                                     Err(error) => {
                                         tracing::error!(?error);
@@ -174,6 +174,7 @@ impl TokioBackend {
                 Some(notify) => {
                     notify.notify_one();
                     std::ptr::drop_in_place(fdinfo);
+                    self.loop_once();
                     0
                 }
                 None => -1,
@@ -184,21 +185,23 @@ impl TokioBackend {
     /// Drive the tokio runtime with an optional duration for timout events
     #[instrument]
     fn dispatch(&self, timeout: Option<Duration>) {
-        let notify = self.dispatch_notify.clone();
-
-        self.runtime.block_on(async move {
+        self.runtime.block_on(async {
             match timeout {
                 // spawned tasks are serviced during the sleep time
                 Some(timeout) => {
                     tokio::select! {
+                        _ = self.dispatch_notify.notified() => (),
                         _ = tokio::time::sleep(timeout) => (),
-                        _ = notify.notified() => (),
                     }
                 }
                 // at least a single yield is required to advance any pending tasks
                 None => tokio::task::yield_now().await,
             }
         })
+    }
+
+    fn loop_once(&self) {
+        self.runtime.block_on(tokio::task::yield_now())
     }
 
     /// Creates a task to service a libevent signal request
@@ -251,7 +254,7 @@ impl TokioBackend {
                                         // libevent dispatches callbacks with the mapped signal
                                         libevent_sys::evmap_signal_active_(base.0, nsignal, 1);
                                     }
-                                    dispatch_notify.notify_one();
+                                    dispatch_notify.notify_waiters();
                                 } else {
                                     tracing::error!("signal stream has closed");
                                     break;
