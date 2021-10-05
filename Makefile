@@ -22,8 +22,8 @@ $(OUT_DIR)/liblibevent.a: FORCE
 
 bench:
 	cargo build --features tracing_subscriber,tokio_backend --release
-	@$(CC) $(CFLAGS) -o $(OUT_DIR)/bench-kqueue $(LIBS) $(SAMPLE_DIR)/bench.c
-	@$(CC) $(CFLAGS) -o $(OUT_DIR)/bench-tokio $(LIBS) $(SAMPLE_DIR)/bench.c -DUSE_TOKIO
+	$(CC) $(CFLAGS) -o $(OUT_DIR)/bench-kqueue $(LIBS) $(SAMPLE_DIR)/bench.c
+	$(CC) $(CFLAGS) -o $(OUT_DIR)/bench-tokio $(LIBS) $(SAMPLE_DIR)/bench.c -DUSE_TOKIO
 	$(OUT_DIR)/bench-kqueue > $(OUT_DIR)/kqueue.csv
 	$(OUT_DIR)/bench-tokio > $(OUT_DIR)/tokio.csv
 	./plot-bench.py

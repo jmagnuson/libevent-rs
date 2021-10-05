@@ -189,9 +189,13 @@ impl TokioBackend {
             match timeout {
                 // spawned tasks are serviced during the sleep time
                 Some(timeout) => {
-                    tokio::select! {
-                        _ = self.dispatch_notify.notified() => (),
-                        _ = tokio::time::sleep(timeout) => (),
+                    if timeout.is_zero() {
+                        tokio::task::yield_now().await;
+                    } else {
+                        tokio::select! {
+                            _ = self.dispatch_notify.notified() => (),
+                            _ = tokio::time::sleep(timeout) => (),
+                        }
                     }
                 }
                 // at least a single yield is required to advance any pending tasks

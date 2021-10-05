@@ -219,7 +219,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < 25; i++) {
 		tv = run_once();
 		if (tv == NULL)
 			exit(1);
