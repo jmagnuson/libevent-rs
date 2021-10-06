@@ -1,7 +1,10 @@
 use std::{
     collections::HashMap,
     ffi::c_void,
-    os::raw::{c_int, c_short},
+    os::{
+        raw::{c_int, c_short},
+        unix::prelude::RawFd,
+    },
     ptr::NonNull,
     sync::Arc,
     time::Duration,
@@ -16,14 +19,12 @@ use tracing::instrument;
 /// Implements a libevent backend using a tokio runtime
 #[derive(Debug)]
 pub struct TokioBackend {
-    /// Callback functions and configuration for I/O handling
-    evsel: libevent_sys::eventop,
-    /// Callback functions and configuration for signal handling
-    evsigsel: libevent_sys::eventop,
-    /// Notifies the dispatch loop that it should yield back to libevent
-    dispatch_notify: Arc<Notify>,
     /// Tokio runtime for driving I/O and signal events
     runtime: tokio::runtime::Runtime,
+    /// Notifies the dispatch loop that it should yield back to libevent
+    dispatch_notify: Arc<Notify>,
+    /// Map of active signals to task shutdown notifications
+    io_map: HashMap<RawFd, Arc<Notify>>,
     /// Map of active signals to task shutdown notifications
     signal_map: HashMap<c_int, Arc<Notify>>,
 }
@@ -32,36 +33,14 @@ impl TokioBackend {
     /// Create a new tokio libevent backend using the provided runtime
     #[instrument]
     fn new(runtime: tokio::runtime::Runtime) -> Self {
-        const EVSEL: libevent_sys::eventop = libevent_sys::eventop {
-            name: "tokio".as_ptr().cast(),
-            init: Some(tokio_backend_init),
-            add: Some(tokio_backend_add),
-            del: Some(tokio_backend_del),
-            dispatch: Some(tokio_backend_dispatch),
-            dealloc: Some(tokio_backend_dealloc),
-            need_reinit: 1,
-            features: libevent_sys::event_method_feature_EV_FEATURE_FDS,
-            fdinfo_len: std::mem::size_of::<Arc<Notify>>() as u64,
-        };
-        const EVSIGSEL: libevent_sys::eventop = libevent_sys::eventop {
-            name: "tokio_signal".as_ptr().cast(),
-            init: None,
-            add: Some(tokio_signal_backend_add),
-            del: Some(tokio_signal_backend_del),
-            dispatch: None,
-            dealloc: None,
-            need_reinit: 0,
-            features: 0,
-            fdinfo_len: 0,
-        };
         let dispatch_notify = Arc::new(Notify::new());
+        let io_map = HashMap::new();
         let signal_map = HashMap::new();
 
         Self {
-            evsel: EVSEL,
-            evsigsel: EVSIGSEL,
-            dispatch_notify,
             runtime,
+            dispatch_notify,
+            io_map,
             signal_map,
         }
     }
@@ -78,13 +57,7 @@ impl TokioBackend {
     /// and DNS request rely on these readiness notifications, but they
     /// otherwise function using unchanged libevent code.
     #[instrument(skip(base))]
-    fn add_io(
-        &self,
-        base: *mut libevent_sys::event_base,
-        fd: c_int,
-        events: c_short,
-        fdinfo: *mut Arc<Notify>,
-    ) -> c_int {
+    fn add_io(&mut self, base: *mut libevent_sys::event_base, fd: c_int, events: c_short) -> c_int {
         tracing::debug!("add an I/O event");
 
         // signal events should never be passed to this function
@@ -102,9 +75,7 @@ impl TokioBackend {
                 // for the file descriptor. The object is no longer guarded and
                 // must be dropped manually when the I/O event is deleted.
                 let notify = Arc::new(Notify::new());
-                unsafe {
-                    fdinfo.write(notify.clone());
-                }
+                self.io_map.insert(fd, notify.clone());
 
                 // A tokio task is spawned to service each I/O event.
                 self.runtime.spawn(async move {
@@ -166,19 +137,17 @@ impl TokioBackend {
 
     /// Terminates an active I/O task
     #[instrument]
-    fn del_io(&self, fdinfo: *mut Arc<Notify>) -> c_int {
+    fn del_io(&mut self, fd: c_int) -> c_int {
         tracing::debug!("delete an I/O event");
 
-        unsafe {
-            match fdinfo.as_mut() {
-                Some(notify) => {
-                    notify.notify_one();
-                    std::ptr::drop_in_place(fdinfo);
-                    self.loop_once();
-                    0
-                }
-                None => -1,
+        match self.io_map.remove(&fd) {
+            Some(notify) => {
+                notify.notify_one();
+                self.loop_once();
+
+                0
             }
+            None => -1,
         }
     }
 
@@ -192,10 +161,8 @@ impl TokioBackend {
                     if timeout.is_zero() {
                         tokio::task::yield_now().await;
                     } else {
-                        tokio::select! {
-                            _ = self.dispatch_notify.notified() => (),
-                            _ = tokio::time::sleep(timeout) => (),
-                        }
+                        let _ =
+                            tokio::time::timeout(timeout, self.dispatch_notify.notified()).await;
                     }
                 }
                 // at least a single yield is required to advance any pending tasks
@@ -314,6 +281,29 @@ unsafe impl Send for BaseWrapper {}
 /// A tracing-subscriber may also be initialized if the feature is activated
 /// to enable tracing output when linked to a C program.
 pub fn inject_tokio(mut base: NonNull<libevent_sys::event_base>, runtime: tokio::runtime::Runtime) {
+    const EVSEL: libevent_sys::eventop = libevent_sys::eventop {
+        name: "tokio".as_ptr().cast(),
+        init: Some(tokio_backend_init),
+        add: Some(tokio_backend_add),
+        del: Some(tokio_backend_del),
+        dispatch: Some(tokio_backend_dispatch),
+        dealloc: Some(tokio_backend_dealloc),
+        need_reinit: 1,
+        features: libevent_sys::event_method_feature_EV_FEATURE_FDS,
+        fdinfo_len: 0,
+    };
+    const EVSIGSEL: libevent_sys::eventop = libevent_sys::eventop {
+        name: "tokio_signal".as_ptr().cast(),
+        init: None,
+        add: Some(tokio_signal_backend_add),
+        del: Some(tokio_signal_backend_del),
+        dispatch: None,
+        dealloc: None,
+        need_reinit: 0,
+        features: 0,
+        fdinfo_len: 0,
+    };
+
     #[cfg(feature = "tracing_subscriber")]
     tracing_subscriber::fmt::init();
 
@@ -328,8 +318,8 @@ pub fn inject_tokio(mut base: NonNull<libevent_sys::event_base>, runtime: tokio:
         }
     }
 
-    base.evsel = &backend.evsel;
-    base.evsigsel = &backend.evsigsel;
+    base.evsel = &EVSEL;
+    base.evsigsel = &EVSIGSEL;
     base.evbase = Box::into_raw(backend).cast();
 }
 
@@ -391,11 +381,11 @@ pub unsafe extern "C" fn tokio_backend_add(
     fd: c_int,
     _old: c_short,
     events: c_short,
-    fdinfo: *mut c_void,
+    _fdinfo: *mut c_void,
 ) -> c_int {
     if let Some(base) = eb.as_ref() {
-        if let Some(backend) = (base.evbase as *mut TokioBackend).as_ref() {
-            return backend.add_io(eb, fd, events, fdinfo.cast());
+        if let Some(backend) = (base.evbase as *mut TokioBackend).as_mut() {
+            return backend.add_io(eb, fd, events);
         }
     }
 
@@ -406,14 +396,14 @@ pub unsafe extern "C" fn tokio_backend_add(
 #[no_mangle]
 unsafe extern "C" fn tokio_backend_del(
     base: *mut libevent_sys::event_base,
-    _fd: c_int,
+    fd: c_int,
     _old: c_short,
     _events: c_short,
-    fdinfo: *mut c_void,
+    _fdinfo: *mut c_void,
 ) -> c_int {
     if let Some(base) = base.as_ref() {
-        if let Some(backend) = (base.evbase as *mut TokioBackend).as_ref() {
-            return backend.del_io(fdinfo.cast());
+        if let Some(backend) = (base.evbase as *mut TokioBackend).as_mut() {
+            return backend.del_io(fd);
         }
     }
 
