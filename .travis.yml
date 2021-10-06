@@ -2,7 +2,7 @@ language: rust
 os: linux
 dist: bionic
 rust:
-  - 1.35.0 # msrv
+  - 1.54.0 # msrv
   - stable
 
 addons:
@@ -21,8 +21,8 @@ addons:
 
 script:
     # Try bundled build first
-  - cargo build --features "bundled,openssl_bundled"
-  - cargo run --manifest-path examples/hello/Cargo.toml --features "bundled,openssl_bundled" -- 5
+  - cargo build --features "tracing_subscriber,tokio_backend"
+  - cargo run --manifest-path examples/hello/Cargo.toml --features "tracing_subscriber,tokio_backend" -- 5
     # Now pkg-config build
   - sudo apt-get install -y libssl-dev libevent-dev
   - cargo clean
