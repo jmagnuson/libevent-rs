@@ -1,4 +1,4 @@
-CARGO_FLAGS = --release --features tokio_backend
+CARGO_FLAGS = --release --features tracing_subscriber,tokio_backend
 CFLAGS = -Wall -Werror
 SAMPLE_DIR = sample
 OUT_DIR = target/release

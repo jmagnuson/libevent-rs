@@ -112,6 +112,10 @@ read_cb(evutil_socket_t fd, short which, void *arg)
 		writes--;
 		fired++;
 	}
+
+	if (count == fired) {
+		event_loopbreak();
+	}
 }
 
 static struct timeval *
@@ -147,13 +151,11 @@ run_once(void)
 		} while (count != fired);
 		evutil_gettimeofday(&te, NULL);
 
-#if 0
 		if (xcount != count)
 		{
-			fprintf(stderr, "Xcount: %d, Rcount: " EV_SSIZE_FMT "\n",
-					xcount, count);
+			fprintf(stderr, "Xcount: %d, Rcount: " EV_SSIZE_FMT ", Failures: %d\n",
+					xcount, count, failures);
 		}
-#endif
 	}
 
 	evutil_timersub(&te, &ts, &te);
@@ -173,7 +175,7 @@ main(int argc, char **argv)
 
 	num_pipes = 100;
 	num_active = 1;
-	num_writes = num_pipes;
+	num_writes = 1 * num_pipes;
 	while ((c = getopt(argc, argv, "n:a:w:")) != -1) {
 		switch (c) {
 		case 'n':

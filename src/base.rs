@@ -54,7 +54,7 @@ impl Base {
     /// Replaces the standard libevent backend with tokio
     #[cfg(feature = "tokio_backend")]
     pub fn inject_tokio(&self, runtime: tokio::runtime::Runtime) {
-        super::backend::inject_tokio(self.base, runtime)
+        super::tokio_backend::inject_tokio(self.base, runtime)
     }
 
     /// Creates a new instance of `Base` using a raw, non-null `event_base`

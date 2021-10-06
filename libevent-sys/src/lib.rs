@@ -7,11 +7,12 @@
 //! - Functions are named the same as the C code and don't follow Rust naming schemes.
 //! - Uses C strings. See `CStr` in the Rust standard library.
 
-#![allow(non_upper_case_globals)]
+#![allow(clippy::redundant_static_lifetimes)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::unreadable_literal)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
-#![allow(clippy::unreadable_literal)]
-#![allow(clippy::redundant_static_lifetimes)]
+#![allow(non_upper_case_globals)]
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
