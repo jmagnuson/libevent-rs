@@ -175,7 +175,7 @@ main(int argc, char **argv)
 
 	num_pipes = 100;
 	num_active = 1;
-	num_writes = 1 * num_pipes;
+	num_writes = num_pipes;
 	while ((c = getopt(argc, argv, "n:a:w:")) != -1) {
 		switch (c) {
 		case 'n':
@@ -221,7 +221,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	for (i = 0; i < 25; i++) {
+	for (i = 0; i < 100; i++) {
 		tv = run_once();
 		if (tv == NULL)
 			exit(1);

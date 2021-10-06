@@ -1,4 +1,4 @@
-use super::{backend::TokioBackend, io::IoType};
+use super::{backend::TokioBackend, io::IoType, BaseWrapper};
 use std::{
     ffi::c_void,
     os::{
@@ -8,13 +8,6 @@ use std::{
     ptr::NonNull,
     time::Duration,
 };
-
-/// Wrapper to allow sending of raw event_base pointers to tokio tasks.
-///
-/// This is safe because libevent performs locking internally.
-struct BaseWrapper(pub *mut libevent_sys::event_base);
-
-unsafe impl Send for BaseWrapper {}
 
 /// Injects a tokio backend with the given runtime into the given libevent instance.
 ///
@@ -73,7 +66,7 @@ pub unsafe extern "C" fn tokio_event_base_new() -> *mut libevent_sys::event_base
 
     match base {
         Some(base) => {
-            let runtime = tokio::runtime::Builder::new_multi_thread()
+            let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .expect("failed to build a tokio runtime");
@@ -99,7 +92,7 @@ pub unsafe extern "C" fn tokio_backend_init(_base: *mut libevent_sys::event_base
 /// libevent callback to add an I/O event
 #[no_mangle]
 pub unsafe extern "C" fn tokio_backend_add(
-    base: *mut libevent_sys::event_base,
+    eb: *mut libevent_sys::event_base,
     fd: c_int,
     _old: c_short,
     events: c_short,
@@ -109,9 +102,9 @@ pub unsafe extern "C" fn tokio_backend_add(
 
     match io_type {
         Some(io_type) => {
-            if let Some(base) = base.as_ref() {
+            if let Some(base) = eb.as_ref() {
                 if let Some(backend) = (base.evbase as *mut TokioBackend).as_mut() {
-                    return backend.add_io(fd, io_type);
+                    return backend.add_io(BaseWrapper(eb), fd, io_type);
                 }
             }
         }
@@ -173,16 +166,16 @@ pub unsafe extern "C" fn tokio_backend_dealloc(base: *mut libevent_sys::event_ba
 /// libevent callback to add a signal event
 #[no_mangle]
 pub unsafe extern "C" fn tokio_signal_backend_add(
-    base: *mut libevent_sys::event_base,
+    eb: *mut libevent_sys::event_base,
     signum: c_int,
     _old: c_short,
     events: c_short,
     _fdinfo: *mut c_void,
 ) -> c_int {
     if events as u32 & libevent_sys::EV_SIGNAL != 0 {
-        if let Some(base) = base.as_ref() {
+        if let Some(base) = eb.as_ref() {
             if let Some(backend) = (base.evbase as *mut TokioBackend).as_mut() {
-                return backend.add_signal(signum);
+                return backend.add_signal(BaseWrapper(eb), signum);
             }
         }
     }

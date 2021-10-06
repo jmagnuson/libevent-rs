@@ -1,23 +1,18 @@
 use super::{
     io::{IoMap, IoType},
     signal::SignalMap,
+    BaseWrapper,
 };
-use std::{
-    future::Future,
-    os::raw::c_int,
-    pin::Pin,
-    task::{Context, Poll},
-    time::Duration,
-};
-use tracing::instrument;
+use std::{os::raw::c_int, sync::Arc, time::Duration};
+use tokio::sync::Notify;
 
 /// Implements a libevent backend using a tokio runtime
 #[derive(Debug)]
 pub struct TokioBackend {
     /// Tokio runtime for driving I/O and signal events
     runtime: tokio::runtime::Runtime,
-    /// Local set for running libevent callbacks on a single thread
-    local: tokio::task::LocalSet,
+    /// Notifies the dispatch loop that it should yield back to libevent
+    dispatch_notify: Arc<Notify>,
     /// Map of futures for registered I/O events
     io_map: IoMap,
     /// Map of futures for registered signals
@@ -26,15 +21,14 @@ pub struct TokioBackend {
 
 impl TokioBackend {
     /// Create a new tokio libevent backend using the provided runtime
-    #[instrument]
     pub fn new(runtime: tokio::runtime::Runtime) -> Self {
-        let local = tokio::task::LocalSet::new();
+        let dispatch_notify = Arc::new(Notify::new());
         let io_map = IoMap::new();
         let signal_map = SignalMap::new();
 
         Self {
             runtime,
-            local,
+            dispatch_notify,
             io_map,
             signal_map,
         }
@@ -51,13 +45,15 @@ impl TokioBackend {
     /// file descriptor. All higher level funcitonality like socket listening
     /// and DNS request rely on these readiness notifications, but they
     /// otherwise function using unchanged libevent code.
-    #[instrument]
-    pub fn add_io(&mut self, fd: c_int, io_type: IoType) -> c_int {
-        tracing::debug!("add an I/O event");
+    pub(crate) fn add_io(&mut self, base: BaseWrapper, fd: c_int, io_type: IoType) -> c_int {
+        tracing::debug!(fd, ?io_type, "add an I/O event");
 
         let _guard = self.runtime.enter();
 
-        match self.io_map.add(fd, io_type) {
+        match self
+            .io_map
+            .add(base, fd, io_type, self.dispatch_notify.clone())
+        {
             Ok(_) => 0,
             Err(error) => {
                 tracing::error!(?error);
@@ -67,13 +63,16 @@ impl TokioBackend {
     }
 
     /// Terminates an active I/O task
-    #[instrument]
     pub fn del_io(&mut self, fd: c_int) -> c_int {
-        tracing::debug!("delete an I/O event");
+        tracing::debug!(fd, "delete an I/O event");
 
-        match self.io_map.del(fd) {
-            Some(_) => 0,
-            None => -1,
+        if let Ok(join_handle) = self.io_map.del(fd) {
+            self.runtime.block_on(async move {
+                let _ = join_handle.await;
+            });
+            0
+        } else {
+            -1
         }
     }
 
@@ -86,13 +85,15 @@ impl TokioBackend {
     ///
     /// Since the tokio signal handler is installed globally. It is safe to
     /// handle signals with both libevent and using tokio directly.
-    #[instrument]
-    pub fn add_signal(&mut self, signum: c_int) -> c_int {
-        tracing::debug!("add a signal event");
+    pub(crate) fn add_signal(&mut self, base: BaseWrapper, signum: c_int) -> c_int {
+        tracing::debug!(signum, "add a signal event");
 
         let _guard = self.runtime.enter();
 
-        match self.signal_map.add(signum) {
+        match self
+            .signal_map
+            .add(base, signum, self.dispatch_notify.clone())
+        {
             Ok(_) => 0,
             Err(error) => {
                 tracing::error!(?error);
@@ -102,54 +103,36 @@ impl TokioBackend {
     }
 
     /// Terminates an active signal task
-    #[instrument]
     pub fn del_signal(&mut self, signum: c_int) -> c_int {
-        tracing::debug!("delete an signal event");
+        tracing::debug!(signum, "delete an signal event");
 
-        match self.signal_map.del(signum) {
-            Some(_) => 0,
-            None => -1,
+        if let Ok(join_handle) = self.signal_map.del(signum) {
+            self.runtime.block_on(async move {
+                let _ = join_handle.await;
+            });
+            0
+        } else {
+            -1
         }
     }
 
     /// Drive the tokio runtime with an optional duration for timout events
-    #[instrument]
-    pub fn dispatch(&mut self, base: *mut libevent_sys::event_base, timeout: Option<Duration>) {
-        let future = Dispatcher {
-            base,
-            io_map: Pin::new(&mut self.io_map),
-            signal_map: Pin::new(&mut self.signal_map),
-        };
+    pub fn dispatch(&mut self, _base: *mut libevent_sys::event_base, timeout: Option<Duration>) {
+        tracing::trace!(?timeout, "dispatch events");
 
-        self.local.block_on(&self.runtime, async move {
+        let dispatch_notify = self.dispatch_notify.clone();
+
+        self.runtime.block_on(async move {
             if let Some(duration) = timeout {
-                let _ = tokio::time::timeout(duration, future).await;
+                if duration.is_zero() {
+                    tokio::task::yield_now().await;
+                    tokio::task::yield_now().await;
+                } else {
+                    let _ = tokio::time::timeout(duration, dispatch_notify.notified()).await;
+                }
             } else {
-                future.await
+                dispatch_notify.notified().await;
             }
         })
-    }
-}
-
-struct Dispatcher<'a> {
-    base: *mut libevent_sys::event_base,
-    io_map: Pin<&'a mut IoMap>,
-    signal_map: Pin<&'a mut SignalMap>,
-}
-
-impl<'a> Future for Dispatcher<'a> {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let project = self.get_mut();
-        let base = project.base;
-        let flag = project.io_map.dispatch(base, cx);
-        let flag = project.signal_map.dispatch(base, cx) || flag;
-
-        if flag {
-            Poll::Ready(())
-        } else {
-            Poll::Pending
-        }
     }
 }

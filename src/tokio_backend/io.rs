@@ -1,13 +1,11 @@
-use std::{
-    collections::HashMap,
-    os::unix::prelude::RawFd,
-    task::{Context, Poll},
-};
-use tokio::io::{unix::AsyncFd, Interest};
+use super::BaseWrapper;
+use std::{collections::HashMap, os::unix::prelude::RawFd, sync::Arc};
+use tokio::{io::{unix::AsyncFd, Interest}, sync::Notify, task::JoinHandle};
 
+/// Manages adding and removing I/O event tasks
 #[derive(Debug)]
 pub struct IoMap {
-    inner: HashMap<RawFd, IoEntry>,
+    inner: HashMap<RawFd, (Arc<Notify>, JoinHandle<()>)>,
 }
 
 impl IoMap {
@@ -17,47 +15,61 @@ impl IoMap {
         }
     }
 
-    pub fn add(&mut self, fd: RawFd, io_type: IoType) -> std::io::Result<Option<IoEntry>> {
+    pub(crate) fn add(
+        &mut self,
+        base: BaseWrapper,
+        fd: RawFd,
+        io_type: IoType,
+        dispatch_notify: Arc<Notify>,
+    ) -> std::io::Result<()> {
+        let notify = Arc::new(Notify::new());
+        let notify_clone = notify.clone();
         let interest = io_type.clone().into();
         let async_fd = AsyncFd::with_interest(fd, interest)?;
-
-        Ok(self.inner.insert(fd, (async_fd, io_type)))
-    }
-
-    pub fn del(&mut self, fd: RawFd) -> Option<IoEntry> {
-        self.inner.remove(&fd)
-    }
-
-    pub fn dispatch(&mut self, base: *mut libevent_sys::event_base, cx: &mut Context) -> bool {
-        let mut ready = false;
-
-        for (fd, (async_fd, io_type)) in &mut self.inner {
-            if io_type.is_read() {
-                if let Poll::Ready(Ok(mut guard)) = async_fd.poll_read_ready(cx) {
-                    unsafe {
-                        libevent_sys::evmap_io_active_(base, *fd, libevent_sys::EV_READ as i16);
+        let join_handle = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    result = async_fd.readable(), if io_type.is_read() => {
+                        if let Ok(mut guard) = result {
+                            unsafe {
+                                libevent_sys::evmap_io_active_(base.0, fd, libevent_sys::EV_READ as i16);
+                            }
+                            guard.clear_ready();
+                            dispatch_notify.notify_one();
+                        }
+                    },
+                    result = async_fd.writable(), if io_type.is_write() => {
+                        if let Ok(mut guard) = result {
+                            unsafe {
+                                libevent_sys::evmap_io_active_(base.0, fd, libevent_sys::EV_WRITE as i16);
+                            }
+                            guard.clear_ready();
+                            dispatch_notify.notify_one();
+                        }
+                    },
+                    _ = notify.notified() => {
+                        break;
                     }
-                    guard.clear_ready();
-                    ready = true;
                 }
             }
 
-            if io_type.is_write() {
-                if let Poll::Ready(Ok(mut guard)) = async_fd.poll_write_ready(cx) {
-                    unsafe {
-                        libevent_sys::evmap_io_active_(base, *fd, libevent_sys::EV_WRITE as i16);
-                    }
-                    guard.clear_ready();
-                    ready = true;
-                }
-            }
+            tracing::debug!(fd, ?io_type, "I/O task removed");
+        });
+
+        self.inner.insert(fd, (notify_clone, join_handle));
+
+        Ok(())
+    }
+
+    pub fn del(&mut self, fd: RawFd) -> Result<JoinHandle<()>, ()> {
+        if let Some((notify, join_handle)) = self.inner.remove(&fd) {
+            notify.notify_one();
+            Ok(join_handle)
+        } else {
+            Err(())
         }
-
-        ready
     }
 }
-
-pub type IoEntry = (AsyncFd<RawFd>, IoType);
 
 #[derive(Clone, Debug)]
 pub enum IoType {
