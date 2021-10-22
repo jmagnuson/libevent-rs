@@ -10,9 +10,11 @@
 #![allow(clippy::redundant_static_lifetimes)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::unreadable_literal)]
+#![allow(deref_nullptr)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
+#![allow(unaligned_references)]
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
@@ -23,6 +25,6 @@ mod tests {
     #[test]
     fn constant_access() {
         assert_eq!(EVENT_LOG_MSG, 1);
-        assert_eq!(IPPORT_RESERVED, 1024);
+        assert_eq!(IPV6PORT_RESERVED, 1024);
     }
 }

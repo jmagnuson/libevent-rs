@@ -1,6 +1,10 @@
 use super::BaseWrapper;
 use std::{collections::HashMap, os::unix::prelude::RawFd, sync::Arc};
-use tokio::{io::{unix::AsyncFd, Interest}, sync::Notify, task::JoinHandle};
+use tokio::{
+    io::{unix::AsyncFd, Interest},
+    sync::Notify,
+    task::JoinHandle,
+};
 
 /// Manages adding and removing I/O event tasks
 #[derive(Debug)]

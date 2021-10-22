@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 
+use super::{event::*, tokio_backend::Runtime};
+use crate::EventCallbackWrapper;
 use bitflags::bitflags;
 use std::io;
 use std::os::raw::{c_int, c_short, c_void};
 use std::ptr::NonNull;
 use std::time::Duration;
-
-use super::event::*;
-use crate::EventCallbackWrapper;
 
 /// A file descriptor in libevent.
 pub type EvutilSocket = c_int;
@@ -51,9 +50,9 @@ impl Base {
         }
     }
 
-    /// Replaces the standard libevent backend with tokio
+    /// Replaces the standard libevent backend with an owned tokio runtime
     #[cfg(feature = "tokio_backend")]
-    pub fn inject_tokio(&self, runtime: tokio::runtime::Runtime) {
+    pub fn inject_tokio(&self, runtime: Box<dyn Runtime>) {
         super::tokio_backend::inject_tokio(self.base, runtime)
     }
 

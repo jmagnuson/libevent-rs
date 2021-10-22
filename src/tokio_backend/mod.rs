@@ -1,9 +1,11 @@
 mod api;
 mod backend;
 mod io;
+mod runtime;
 mod signal;
 
 pub use api::inject_tokio;
+pub use runtime::{JoinFuture, Runtime, TokioRuntime, YieldFuture};
 
 /// Wrapper to allow sending of raw event_base pointers to tokio tasks.
 ///

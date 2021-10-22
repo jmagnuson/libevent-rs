@@ -3,7 +3,7 @@ use std::time::Duration;
 
 pub mod ffi;
 
-use libevent::{EventCallbackCtx, EventCallbackFlags, EvutilSocket};
+use libevent::{tokio_backend::Runtime, EventCallbackCtx, EventCallbackFlags, EvutilSocket};
 
 extern "C" fn hello_callback(
     _fd: EvutilSocket,
@@ -15,19 +15,21 @@ extern "C" fn hello_callback(
 
 #[cfg(feature = "tokio_backend")]
 fn inject_tokio(base: &Base) {
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build a tokio runtime");
+    let runtime =
+        libevent::tokio_backend::TokioRuntime::new().expect("failed to build a tokio runtime");
 
-    runtime.spawn(async {
-        loop {
-            tokio::time::sleep(Duration::from_secs(5)).await;
-            println!("'Hello, world' from a tokio task!");
-        }
-    });
+    {
+        let _guard = runtime.enter();
 
-    base.inject_tokio(runtime);
+        tokio::spawn(async {
+            loop {
+                tokio::time::sleep(Duration::from_secs(3)).await;
+                println!("'Hello, world' from a tokio task!");
+            }
+        });
+    }
+
+    base.inject_tokio(Box::new(runtime));
 }
 
 fn main() {

@@ -1,16 +1,17 @@
 use super::{
     io::{IoMap, IoType},
+    runtime::Runtime,
     signal::SignalMap,
     BaseWrapper,
 };
+use crate::tokio_backend::runtime::{JoinFuture, YieldFuture};
 use std::{os::raw::c_int, sync::Arc, time::Duration};
-use tokio::sync::Notify;
+use tokio::{sync::Notify, task::JoinHandle};
 
 /// Implements a libevent backend using a tokio runtime
-#[derive(Debug)]
 pub struct TokioBackend {
-    /// Tokio runtime for driving I/O and signal events
-    runtime: tokio::runtime::Runtime,
+    /// Option tokio runtime to maintain ownership
+    runtime: Box<dyn Runtime>,
     /// Notifies the dispatch loop that it should yield back to libevent
     dispatch_notify: Arc<Notify>,
     /// Map of futures for registered I/O events
@@ -20,8 +21,8 @@ pub struct TokioBackend {
 }
 
 impl TokioBackend {
-    /// Create a new tokio libevent backend using the provided runtime
-    pub fn new(runtime: tokio::runtime::Runtime) -> Self {
+    /// Create a new libevent backend using the provided runtime
+    pub fn new(runtime: Box<dyn Runtime>) -> Self {
         let dispatch_notify = Arc::new(Notify::new());
         let io_map = IoMap::new();
         let signal_map = SignalMap::new();
@@ -62,14 +63,19 @@ impl TokioBackend {
         }
     }
 
+    /// Blocks on the given join handle
+    fn join(&self, join_handle: JoinHandle<()>) {
+        let future = JoinFuture::new(join_handle);
+
+        self.runtime.join(future);
+    }
+
     /// Terminates an active I/O task
     pub fn del_io(&mut self, fd: c_int) -> c_int {
         tracing::debug!(fd, "delete an I/O event");
 
         if let Ok(join_handle) = self.io_map.del(fd) {
-            self.runtime.block_on(async move {
-                let _ = join_handle.await;
-            });
+            self.join(join_handle);
             0
         } else {
             -1
@@ -104,12 +110,10 @@ impl TokioBackend {
 
     /// Terminates an active signal task
     pub fn del_signal(&mut self, signum: c_int) -> c_int {
-        tracing::debug!(signum, "delete an signal event");
+        tracing::debug!(signum, "delete a signal event");
 
         if let Ok(join_handle) = self.signal_map.del(signum) {
-            self.runtime.block_on(async move {
-                let _ = join_handle.await;
-            });
+            self.join(join_handle);
             0
         } else {
             -1
@@ -120,19 +124,26 @@ impl TokioBackend {
     pub fn dispatch(&mut self, _base: *mut libevent_sys::event_base, timeout: Option<Duration>) {
         tracing::trace!(?timeout, "dispatch events");
 
-        let dispatch_notify = self.dispatch_notify.clone();
+        let _guard = self.runtime.enter();
 
-        self.runtime.block_on(async move {
-            if let Some(duration) = timeout {
+        match timeout {
+            Some(duration) => {
                 if duration.is_zero() {
-                    tokio::task::yield_now().await;
-                    tokio::task::yield_now().await;
+                    let future = YieldFuture::default();
+
+                    self.runtime.dispatch_yield(future);
                 } else {
-                    let _ = tokio::time::timeout(duration, dispatch_notify.notified()).await;
+                    let future = self.dispatch_notify.notified();
+                    let future = tokio::time::timeout(duration, future);
+
+                    self.runtime.dispatch_timeout(future);
                 }
-            } else {
-                dispatch_notify.notified().await;
             }
-        })
+            None => {
+                let future = self.dispatch_notify.notified();
+
+                self.runtime.dispatch_notify(future);
+            }
+        }
     }
 }

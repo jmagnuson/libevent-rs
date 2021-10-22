@@ -13,7 +13,7 @@ pub use base::{
 };
 
 #[cfg(feature = "tokio_backend")]
-mod tokio_backend;
+pub mod tokio_backend;
 
 /// The context passed into `handle_wrapped_callback`, which handles event-type
 /// specific metadata for trampolining into the user-supplied closure.

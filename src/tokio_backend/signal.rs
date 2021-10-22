@@ -1,6 +1,10 @@
 use super::BaseWrapper;
 use std::{collections::HashMap, os::raw::c_int, sync::Arc};
-use tokio::{signal::unix::{signal, SignalKind}, sync::Notify, task::JoinHandle};
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    sync::Notify,
+    task::JoinHandle,
+};
 
 /// Manages adding and removing signal event tasks
 #[derive(Debug)]

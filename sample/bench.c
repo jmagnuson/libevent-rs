@@ -34,6 +34,7 @@
  */
 
 #include "event2/event-config.h"
+#include "event2/thread.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -172,6 +173,10 @@ main(int argc, char **argv)
 	int i, c;
 	struct timeval *tv;
 	evutil_socket_t *cp;
+
+#ifndef USE_TOKIO
+	evthread_use_pthreads();
+#endif
 
 	num_pipes = 100;
 	num_active = 1;

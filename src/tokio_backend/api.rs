@@ -1,4 +1,9 @@
-use super::{backend::TokioBackend, io::IoType, BaseWrapper};
+use super::{
+    backend::TokioBackend,
+    io::IoType,
+    runtime::{Runtime, TokioRuntime},
+    BaseWrapper,
+};
 use std::{
     ffi::c_void,
     os::{
@@ -9,40 +14,34 @@ use std::{
     time::Duration,
 };
 
+const EVSEL: libevent_sys::eventop = libevent_sys::eventop {
+    name: "tokio".as_ptr().cast(),
+    init: Some(tokio_backend_init),
+    add: Some(tokio_backend_add),
+    del: Some(tokio_backend_del),
+    dispatch: Some(tokio_backend_dispatch),
+    dealloc: Some(tokio_backend_dealloc),
+    need_reinit: 1,
+    features: libevent_sys::event_method_feature_EV_FEATURE_FDS,
+    fdinfo_len: std::mem::size_of::<RawFd>() as u64,
+};
+const EVSIGSEL: libevent_sys::eventop = libevent_sys::eventop {
+    name: "tokio_signal".as_ptr().cast(),
+    init: None,
+    add: Some(tokio_signal_backend_add),
+    del: Some(tokio_signal_backend_del),
+    dispatch: None,
+    dealloc: None,
+    need_reinit: 0,
+    features: 0,
+    fdinfo_len: 0,
+};
+
 /// Injects a tokio backend with the given runtime into the given libevent instance.
 ///
 /// The libevent instance will already have an initialized backend. This
 /// exisiting backend is deallocated before being replaced.
-///
-/// A tracing-subscriber may also be initialized if the feature is activated
-/// to enable tracing output when linked to a C program.
-pub fn inject_tokio(mut base: NonNull<libevent_sys::event_base>, runtime: tokio::runtime::Runtime) {
-    const EVSEL: libevent_sys::eventop = libevent_sys::eventop {
-        name: "tokio".as_ptr().cast(),
-        init: Some(tokio_backend_init),
-        add: Some(tokio_backend_add),
-        del: Some(tokio_backend_del),
-        dispatch: Some(tokio_backend_dispatch),
-        dealloc: Some(tokio_backend_dealloc),
-        need_reinit: 1,
-        features: libevent_sys::event_method_feature_EV_FEATURE_FDS,
-        fdinfo_len: std::mem::size_of::<RawFd>() as u64,
-    };
-    const EVSIGSEL: libevent_sys::eventop = libevent_sys::eventop {
-        name: "tokio_signal".as_ptr().cast(),
-        init: None,
-        add: Some(tokio_signal_backend_add),
-        del: Some(tokio_signal_backend_del),
-        dispatch: None,
-        dealloc: None,
-        need_reinit: 0,
-        features: 0,
-        fdinfo_len: 0,
-    };
-
-    #[cfg(feature = "tracing_subscriber")]
-    tracing_subscriber::fmt::init();
-
+pub fn inject_tokio(mut base: NonNull<libevent_sys::event_base>, runtime: Box<dyn Runtime>) {
     let backend = Box::new(TokioBackend::new(runtime));
     let base = unsafe { base.as_mut() };
 
@@ -65,16 +64,18 @@ pub unsafe extern "C" fn tokio_event_base_new() -> *mut libevent_sys::event_base
     let base = NonNull::new(libevent_sys::event_base_new());
 
     match base {
-        Some(base) => {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("failed to build a tokio runtime");
+        Some(base) => match TokioRuntime::new() {
+            Ok(runtime) => {
+                inject_tokio(base, Box::new(runtime));
 
-            inject_tokio(base, runtime);
+                base.as_ptr()
+            }
+            Err(error) => {
+                tracing::error!(?error, "failed to create a new Tokio runtime");
 
-            base.as_ptr()
-        }
+                std::ptr::null_mut()
+            }
+        },
         None => std::ptr::null_mut(),
     }
 }
