@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::{event::*, tokio_backend::Runtime};
+use super::event::*;
 use crate::EventCallbackWrapper;
 use bitflags::bitflags;
 use std::io;
@@ -52,7 +52,7 @@ impl Base {
 
     /// Replaces the standard libevent backend with an owned tokio runtime
     #[cfg(feature = "tokio_backend")]
-    pub fn inject_tokio(&self, runtime: Box<dyn Runtime>) {
+    pub fn inject_tokio(&self, runtime: Box<dyn crate::tokio_backend::Runtime>) {
         super::tokio_backend::inject_tokio(self.base, runtime)
     }
 

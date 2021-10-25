@@ -4,6 +4,7 @@ use super::{
     runtime::{Runtime, TokioRuntime},
     BaseWrapper,
 };
+use libevent_sys::size_t;
 use std::{
     ffi::c_void,
     os::{
@@ -23,7 +24,7 @@ const EVSEL: libevent_sys::eventop = libevent_sys::eventop {
     dealloc: Some(tokio_backend_dealloc),
     need_reinit: 1,
     features: libevent_sys::event_method_feature_EV_FEATURE_FDS,
-    fdinfo_len: std::mem::size_of::<RawFd>() as u64,
+    fdinfo_len: std::mem::size_of::<RawFd>() as size_t,
 };
 const EVSIGSEL: libevent_sys::eventop = libevent_sys::eventop {
     name: "tokio_signal".as_ptr().cast(),

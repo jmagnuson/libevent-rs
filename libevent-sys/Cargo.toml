@@ -27,7 +27,7 @@ buildtime_bindgen = ["bindgen"]
 openssl = ["openssl-sys"]
 openssl_bundled = ["openssl-sys/vendored", "threading"]
 threading = []
-tokio_backend = ["bundled", "buildtime_bindgen"]
+tokio_backend = ["buildtime_bindgen"]
 
 # features for development
 verbose_build = []
