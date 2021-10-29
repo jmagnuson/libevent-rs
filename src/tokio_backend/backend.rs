@@ -71,11 +71,14 @@ impl TokioBackend {
     }
 
     /// Terminates an active I/O task
-    pub fn del_io(&mut self, fd: c_int) -> c_int {
-        tracing::debug!(fd, "delete an I/O event");
+    pub fn del_io(&mut self, fd: c_int, io_type: IoType) -> c_int {
+        tracing::debug!(fd, ?io_type, "delete an I/O event");
 
-        if let Ok(join_handle) = self.io_map.del(fd) {
-            self.join(join_handle);
+        if let Ok(result) = self.io_map.del(fd, io_type) {
+            if let Some(join_handle) = result {
+                self.join(join_handle);
+            }
+
             0
         } else {
             -1

@@ -1,5 +1,12 @@
 use super::BaseWrapper;
-use std::{collections::HashMap, os::unix::prelude::RawFd, sync::Arc};
+use std::{
+    collections::HashMap,
+    os::unix::prelude::*,
+    sync::{
+        atomic::{AtomicI32, Ordering},
+        Arc,
+    },
+};
 use tokio::{
     io::{unix::AsyncFd, Interest},
     sync::Notify,
@@ -9,7 +16,27 @@ use tokio::{
 /// Manages adding and removing I/O event tasks
 #[derive(Debug)]
 pub struct IoMap {
-    inner: HashMap<RawFd, (Arc<Notify>, JoinHandle<()>)>,
+    inner: HashMap<RawFd, IoEntry>,
+}
+
+#[derive(Clone, Debug)]
+pub enum IoType {
+    Read,
+    ReadWrite,
+    Write,
+}
+
+#[derive(Debug)]
+struct IoContext {
+    notify: Notify,
+    nread: AtomicI32,
+    nwrite: AtomicI32,
+}
+
+#[derive(Debug)]
+struct IoEntry {
+    context: Arc<IoContext>,
+    join_handle: JoinHandle<()>,
 }
 
 impl IoMap {
@@ -26,60 +53,74 @@ impl IoMap {
         io_type: IoType,
         dispatch_notify: Arc<Notify>,
     ) -> std::io::Result<()> {
-        let notify = Arc::new(Notify::new());
-        let notify_clone = notify.clone();
-        let interest = io_type.clone().into();
-        let async_fd = AsyncFd::with_interest(fd, interest)?;
-        let join_handle = tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    result = async_fd.readable(), if io_type.is_read() => {
-                        if let Ok(mut guard) = result {
-                            unsafe {
-                                libevent_sys::evmap_io_active_(base.0, fd, libevent_sys::EV_READ as i16);
-                            }
-                            guard.clear_ready();
-                            dispatch_notify.notify_one();
-                        }
-                    },
-                    result = async_fd.writable(), if io_type.is_write() => {
-                        if let Ok(mut guard) = result {
-                            unsafe {
-                                libevent_sys::evmap_io_active_(base.0, fd, libevent_sys::EV_WRITE as i16);
-                            }
-                            guard.clear_ready();
-                            dispatch_notify.notify_one();
-                        }
-                    },
-                    _ = notify.notified() => {
-                        break;
-                    }
+        match self.inner.get(&fd) {
+            Some(entry) => {
+                if io_type.is_read() {
+                    entry.context.nread.fetch_add(1, Ordering::AcqRel);
                 }
+
+                if io_type.is_write() {
+                    entry.context.nwrite.fetch_add(1, Ordering::AcqRel);
+                }
+
+                entry.context.notify.notify_one();
             }
+            None => {
+                let context = Arc::new(IoContext {
+                    notify: Notify::new(),
+                    nread: AtomicI32::new(if io_type.is_read() { 1 } else { 0 }),
+                    nwrite: AtomicI32::new(if io_type.is_write() { 1 } else { 0 }),
+                });
+                let async_fd = AsyncFd::new(fd)?;
+                let join_handle = tokio::spawn(io_task(
+                    async_fd,
+                    base,
+                    context.clone(),
+                    dispatch_notify.clone(),
+                ));
+                let entry = IoEntry {
+                    context,
+                    join_handle,
+                };
 
-            tracing::debug!(fd, ?io_type, "I/O task removed");
-        });
-
-        self.inner.insert(fd, (notify_clone, join_handle));
+                self.inner.insert(fd, entry);
+            }
+        }
 
         Ok(())
     }
 
-    pub fn del(&mut self, fd: RawFd) -> Result<JoinHandle<()>, ()> {
-        if let Some((notify, join_handle)) = self.inner.remove(&fd) {
-            notify.notify_one();
-            Ok(join_handle)
-        } else {
-            Err(())
-        }
-    }
-}
+    pub fn del(&mut self, fd: RawFd, io_type: IoType) -> Result<Option<JoinHandle<()>>, ()> {
+        let total = {
+            let entry = self.inner.get_mut(&fd).ok_or_else(|| ())?;
 
-#[derive(Clone, Debug)]
-pub enum IoType {
-    Read,
-    ReadWrite,
-    Write,
+            let nread = if io_type.is_read() {
+                entry.context.nread.fetch_sub(1, Ordering::AcqRel)
+            } else {
+                entry.context.nread.load(Ordering::Acquire)
+            };
+            assert!(nread >= 0);
+
+            let nwrite = if io_type.is_write() {
+                entry.context.nwrite.fetch_sub(1, Ordering::AcqRel)
+            } else {
+                entry.context.nread.load(Ordering::Acquire)
+            };
+            assert!(nwrite >= 0);
+
+            entry.context.notify.notify_one();
+
+            nread + nwrite
+        };
+
+        Ok(if total > 0 {
+            let entry = self.inner.remove(&fd).unwrap();
+
+            Some(entry.join_handle)
+        } else {
+            None
+        })
+    }
 }
 
 impl IoType {
@@ -121,6 +162,46 @@ impl From<IoType> for Interest {
             IoType::Read => Interest::READABLE,
             IoType::Write => Interest::WRITABLE,
             IoType::ReadWrite => Interest::READABLE.add(Interest::WRITABLE),
+        }
+    }
+}
+
+async fn io_task(
+    async_fd: AsyncFd<RawFd>,
+    base: BaseWrapper,
+    context: Arc<IoContext>,
+    dispatch_notify: Arc<Notify>,
+) {
+    let fd = async_fd.as_raw_fd();
+
+    loop {
+        tokio::select! {
+            _ = context.notify.notified() => {
+                let total = context.nread.load(Ordering::Acquire) + context.nwrite.load(Ordering::Acquire);
+
+                if total == 0 {
+                    tracing::debug!(fd, "I/O task removed");
+                    return;
+                }
+            },
+            result = async_fd.readable(), if context.nread.load(Ordering::Acquire) > 0 => {
+                if let Ok(mut guard) = result {
+                    unsafe {
+                        libevent_sys::evmap_io_active_(base.0, fd, libevent_sys::EV_READ as i16);
+                    }
+                    guard.clear_ready();
+                    dispatch_notify.notify_one();
+                }
+            },
+            result = async_fd.writable(), if context.nwrite.load(Ordering::Acquire) > 0 => {
+                if let Ok(mut guard) = result {
+                    unsafe {
+                        libevent_sys::evmap_io_active_(base.0, fd, libevent_sys::EV_WRITE as i16);
+                    }
+                    guard.clear_ready();
+                    dispatch_notify.notify_one();
+                }
+            },
         }
     }
 }

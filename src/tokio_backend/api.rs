@@ -100,17 +100,12 @@ pub unsafe extern "C" fn tokio_backend_add(
     events: c_short,
     _fdinfo: *mut c_void,
 ) -> c_int {
-    let io_type = IoType::from_events(events as u32);
-
-    match io_type {
-        Some(io_type) => {
-            if let Some(base) = eb.as_ref() {
-                if let Some(backend) = (base.evbase as *mut TokioBackend).as_mut() {
-                    return backend.add_io(BaseWrapper(eb), fd, io_type);
-                }
+    if let Some(io_type) = IoType::from_events(events as u32) {
+        if let Some(base) = eb.as_ref() {
+            if let Some(backend) = (base.evbase as *mut TokioBackend).as_mut() {
+                return backend.add_io(BaseWrapper(eb), fd, io_type);
             }
         }
-        None => return -1,
     }
 
     -1
@@ -122,12 +117,14 @@ unsafe extern "C" fn tokio_backend_del(
     base: *mut libevent_sys::event_base,
     fd: c_int,
     _old: c_short,
-    _events: c_short,
+    events: c_short,
     _fdinfo: *mut c_void,
 ) -> c_int {
     if let Some(base) = base.as_ref() {
         if let Some(backend) = (base.evbase as *mut TokioBackend).as_mut() {
-            return backend.del_io(fd);
+            if let Some(io_type) = IoType::from_events(events as u32) {
+                return backend.del_io(fd, io_type);
+            }
         }
     }
 
