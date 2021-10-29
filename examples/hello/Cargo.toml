@@ -1,17 +1,32 @@
 [package]
 name = "hello"
 version = "0.1.0"
-authors = ["Jon Magnuson <jon.magnuson@gmail.com>"]
+authors = [
+    "Jon Magnuson <jon.magnuson@gmail.com>",
+    "Judge Maygarden <jmaygarden@gmail.com>",
+]
 edition = "2018"
-build="build.rs"
+build = "build.rs"
 
 [features]
-default = [ "bundled", "openssl", "buildtime_bindgen" ]
-bundled = ["libevent/bundled",  "libevent-sys/bundled" ]
+default = [
+    "bundled",
+    "openssl",
+    "buildtime_bindgen",
+    "tokio_backend",
+    "tracing_subscriber",
+]
+bundled = ["libevent/bundled", "libevent-sys/bundled"]
 openssl = ["libevent/openssl"]
-openssl_bundled = [ "libevent/openssl_bundled" ]
+openssl_bundled = ["libevent/openssl_bundled"]
 pkgconfig = ["libevent/pkgconfig"]
 buildtime_bindgen = ["libevent/buildtime_bindgen"]
+tokio_backend = ["libevent/tokio_backend", "tokio"]
+tracing_subscriber = ["tracing-subscriber"]
+
+[dependencies]
+tokio = { version = "1", optional = true, features = ["rt"] }
+tracing-subscriber = { version = "0.2", optional = true }
 
 [dependencies.libevent]
 path = "../../"

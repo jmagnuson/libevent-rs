@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 
+use super::event::*;
+use crate::EventCallbackWrapper;
 use bitflags::bitflags;
 use std::io;
 use std::os::raw::{c_int, c_short, c_void};
 use std::ptr::NonNull;
 use std::time::Duration;
-
-use super::event::*;
-use crate::EventCallbackWrapper;
 
 /// A file descriptor in libevent.
 pub type EvutilSocket = c_int;
@@ -49,6 +48,12 @@ impl Base {
                 "Failed to create libevent base",
             ))
         }
+    }
+
+    /// Replaces the standard libevent backend with an owned tokio runtime
+    #[cfg(feature = "tokio_backend")]
+    pub fn inject_tokio(&self, runtime: Box<dyn crate::tokio_backend::Runtime>) {
+        super::tokio_backend::inject_tokio(self.base, runtime)
     }
 
     /// Creates a new instance of `Base` using a raw, non-null `event_base`

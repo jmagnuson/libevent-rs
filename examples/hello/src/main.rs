@@ -3,7 +3,7 @@ use std::time::Duration;
 
 pub mod ffi;
 
-use libevent::{EventCallbackCtx, EventCallbackFlags, EvutilSocket};
+use libevent::{tokio_backend::Runtime, EventCallbackCtx, EventCallbackFlags, EvutilSocket};
 
 extern "C" fn hello_callback(
     _fd: EvutilSocket,
@@ -13,7 +13,29 @@ extern "C" fn hello_callback(
     println!("callback: rust fn (interval: 2s)");
 }
 
+#[cfg(feature = "tokio_backend")]
+fn inject_tokio(base: &Base) {
+    let runtime =
+        libevent::tokio_backend::TokioRuntime::new().expect("failed to build a tokio runtime");
+
+    {
+        let _guard = runtime.enter();
+
+        tokio::spawn(async {
+            loop {
+                tokio::time::sleep(Duration::from_secs(3)).await;
+                println!("'Hello, world' from a tokio task!");
+            }
+        });
+    }
+
+    base.inject_tokio(Box::new(runtime));
+}
+
 fn main() {
+    #[cfg(feature = "tracing_subscriber")]
+    tracing_subscriber::fmt::init();
+
     let run_duration = std::env::args().nth(1).map(|val_s| {
         Duration::from_secs(
             val_s
@@ -23,6 +45,9 @@ fn main() {
     });
 
     let mut base = Base::new().unwrap_or_else(|e| panic!("{:?}", e));
+
+    #[cfg(feature = "tokio_backend")]
+    inject_tokio(&base);
 
     let ret = unsafe { ffi::helloc_init(base.as_raw().as_ptr()) };
     assert_eq!(ret, 0);

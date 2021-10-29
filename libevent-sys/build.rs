@@ -105,7 +105,10 @@ fn run_pkg_config() -> Option<Vec<String>> {
 
     let mut include_paths = HashSet::new();
 
-    if let Ok(mut lib) = pkg.probe("libevent_core").or_else(|_| pkg.probe("libevent")) {
+    if let Ok(mut lib) = pkg
+        .probe("libevent_core")
+        .or_else(|_| pkg.probe("libevent"))
+    {
         include_paths.extend(lib.include_paths.drain(..));
     } else {
         return None;
@@ -166,7 +169,6 @@ fn find_libevent() -> Option<Vec<String>> {
 
 #[cfg(feature = "buildtime_bindgen")]
 fn generate_bindings(include_paths: Vec<String>, out_path: impl AsRef<Path>) {
-    println!("cargo:rerun-if-changed=libevent");
     println!("cargo:rerun-if-changed=wrapper.h");
 
     let target = env::var("TARGET").unwrap();
@@ -188,12 +190,23 @@ fn generate_bindings(include_paths: Vec<String>, out_path: impl AsRef<Path>) {
         builder = builder.clang_arg(format!("-I{}", path));
     }
 
+    // Some of the libevent internals need to be exposed to inject a tokio backend.
+    if cfg!(feature = "tokio_backend") {
+        builder = builder
+            .clang_arg("-Ilibevent")
+            .clang_arg(format!("-I{}/build/include", out_path.as_ref().display()))
+            .header("libevent/event-internal.h")
+            .header("libevent/evmap-internal.h")
+            .blocklist_item(".*voucher.*")
+            .blocklist_item("strto.*");
+    }
+
     let bindings = builder
         .header("wrapper.h")
         // Enable for more readable bindings
         // .rustfmt_bindings(true)
         // Fixes a bug with a duplicated const
-        .blacklist_item("IPPORT_RESERVED")
+        .blocklist_item("IPPORT_RESERVED")
         .generate()
         .expect("Failed to generate bindings");
 

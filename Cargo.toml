@@ -1,8 +1,11 @@
 [package]
 name = "libevent"
-version = "0.1.0"
-authors = ["Jon Magnuson <jon.magnuson@gmail.com>",
-           "Grant Elbert <elbe0046@gmail.com>"]
+version = "0.2.0"
+authors = [
+    "Jon Magnuson <jon.magnuson@gmail.com>",
+    "Grant Elbert <elbe0046@gmail.com>",
+    "Judge Maygarden <jmaygarden@gmail.com>",
+]
 description = "Rust bindings to the libevent async I/O framework"
 documentation = "https://docs.rs/libevent"
 repository = "https://github.com/jmagnuson/libevent-rs"
@@ -12,22 +15,38 @@ edition = "2018"
 categories = ["api-bindings", "asynchronous"]
 keywords = ["libevent", "bindings", "async", "io"]
 
+[lib]
+crate-type = ["lib", "staticlib"]
+
 [workspace]
-members = ['examples/hello']
+members = ["examples/hello"]
 
 [features]
-default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen" ]
-static = [ "libevent-sys/static" ]
-pkgconfig = [ "libevent-sys/pkgconfig" ]
-bundled = [ "static", "libevent-sys/bundled" ]
-buildtime_bindgen = [ "libevent-sys/buildtime_bindgen" ]
-openssl = [ "libevent-sys/openssl" ]
-openssl_bundled = [ "libevent-sys/openssl_bundled", "threading" ]
-threading = [ "libevent-sys/threading" ]
+default = ["pkgconfig", "openssl", "threading", "buildtime_bindgen"]
+static = ["libevent-sys/static"]
+pkgconfig = ["libevent-sys/pkgconfig"]
+bundled = ["static", "libevent-sys/bundled"]
+buildtime_bindgen = ["libevent-sys/buildtime_bindgen"]
+openssl = ["libevent-sys/openssl"]
+openssl_bundled = ["libevent-sys/openssl_bundled", "threading"]
+threading = ["libevent-sys/threading"]
+tokio_backend = ["bundled", "libevent-sys/tokio_backend", "tokio"]
+tracing_subscriber = ["tracing-subscriber"]
 
 # features for development
-verbose_build = [ "libevent-sys/verbose_build" ]
+verbose_build = ["libevent-sys/verbose_build"]
 
 [dependencies]
 bitflags = "1.2"
-libevent-sys = { version = "0.2", path = "libevent-sys", default-features = false }
+libevent-sys = { version = "0.3", path = "libevent-sys", default-features = false }
+tokio = { version = "1", optional = true, features = [
+    "macros",
+    "net",
+    "rt",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+] }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.2", optional = true }
