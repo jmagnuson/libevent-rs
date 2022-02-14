@@ -12,7 +12,7 @@ Rust FFI bindings to [libevent] library made using [Rust-Bindgen].
   is only required if `buildtime_bindgen` is enabled.
 
 * `cmake` if self-building via the `bundled` feature. The current bundled
-  release is `release-2.1.11-stable`.
+  release is `release-2.1.12-stable`.
 
 * `pkg-config` if not self-building via the `bundled` feature.
 
