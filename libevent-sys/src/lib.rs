@@ -12,6 +12,7 @@
 #![allow(non_snake_case)]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::redundant_static_lifetimes)]
+#![allow(clippy::missing_safety_doc)]
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
