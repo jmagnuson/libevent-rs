@@ -1,0 +1,49 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: cargo tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest]
+        rust:
+          - stable
+          - 1.47 # msrv
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install build dependencies
+        run: >-
+          sudo apt-get install -y
+          autoconf
+          automake
+          build-essential
+          cmake
+          clang
+          libc6-dev-i386
+          libclang-dev
+          llvm-dev
+          zlib1g-dev
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - name: Run bundled test
+        run: |
+          cargo build --features "bundled,openssl_bundled"
+          cargo run --manifest-path examples/hello/Cargo.toml --features "bundled,openssl_bundled" -- 5
+
+      - name: Run pkg-config test
+        run: |
+          sudo apt-get install -y libssl-dev libevent-dev
+          cargo clean
+          cargo build --no-default-features --features "openssl,pkgconfig,buildtime_bindgen"
+          cargo run --manifest-path examples/hello/Cargo.toml --no-default-features --features "openssl,pkgconfig,buildtime_bindgen" -- 5
