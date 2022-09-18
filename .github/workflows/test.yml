@@ -12,7 +12,7 @@ jobs:
         os: [ubuntu-latest]
         rust:
           - stable
-          - 1.56 # msrv
+          - 1.57 # msrv
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
