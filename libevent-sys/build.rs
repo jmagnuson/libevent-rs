@@ -193,7 +193,7 @@ fn generate_bindings(include_paths: Vec<String>, out_path: impl AsRef<Path>) {
         // Enable for more readable bindings
         // .rustfmt_bindings(true)
         // Fixes a bug with a duplicated const
-        .blacklist_item("IPPORT_RESERVED")
+        .blocklist_item("IPPORT_RESERVED")
         .generate()
         .expect("Failed to generate bindings");
 
