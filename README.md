@@ -31,7 +31,7 @@ base.run();
   is only required if `buildtime_bindgen` is enabled.
 
 * `cmake` if self-building via the `bundled` feature. The current bundled
-  release is `release-2.1.11-stable`.
+  release is `release-2.1.12-stable`.
 
 * `pkg-config` if not self-building via the `bundled` feature.
 
@@ -45,7 +45,7 @@ base.run();
 
 ## Minimum Supported Rust Version (MSRV)
 
-This crate is guaranteed to compile on stable Rust 1.57.0 and up. It might compile
+This crate is guaranteed to compile on stable Rust 1.65.0 and up. It might compile
 with older versions but that may change in any new patch release.
 
 ## License

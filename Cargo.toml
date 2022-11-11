@@ -1,6 +1,6 @@
 [package]
 name = "libevent"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jon Magnuson <jon.magnuson@gmail.com>",
            "Grant Elbert <elbe0046@gmail.com>"]
 description = "Rust bindings to the libevent async I/O framework"
