@@ -3,7 +3,7 @@
 //! [libevent]: https://libevent.org/
 
 
-#![feature(generic_associated_types)]
+// #![feature(generic_associated_types)]
 
 use std::time::Duration;
 
