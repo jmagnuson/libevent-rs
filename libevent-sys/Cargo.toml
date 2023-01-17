@@ -1,11 +1,11 @@
 [package]
 name = "libevent-sys"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>",
            "Jon Magnuson <jon.magnuson@gmail.com>",
            "Grant Elbert <elbe0046@gmail.com>"]
 repository = "https://github.com/jmagnuson/libevent-rs"
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 license = "MIT"
 description = "Rust FFI bindings to the libevent library"
@@ -33,6 +33,6 @@ version = "0.9"
 optional = true
 
 [build-dependencies]
-bindgen = { version = "0.53", optional = true }
+bindgen = { version = "0.60", optional = true }
 cmake = { version = "0.1", optional = true }
 pkg-config = { version = "0.3", optional = true }
