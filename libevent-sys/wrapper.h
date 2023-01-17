@@ -1,7 +1,6 @@
 #include <event.h>
 
-#include <event2/event.h>       // The primary libevent header
-#include <event2/thread.h>      // Functions for use by multithreaded programs
+
 #include <event2/buffer.h>      // and event2/bufferevent.h Buffer management for network reading and writing
 #include <event2/bufferevent.h> // and event2/bufferevent.h Buffer management for network reading and writing
 #include <event2/util.h>        // Utility functions for portable nonblocking network code
