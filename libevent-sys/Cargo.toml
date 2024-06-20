@@ -24,6 +24,7 @@ buildtime_bindgen = [ "bindgen" ]
 openssl = [ "openssl-sys" ]
 openssl_bundled = [ "openssl-sys/vendored", "threading" ]
 threading = []
+logging = []
 
 # features for development
 verbose_build = []
