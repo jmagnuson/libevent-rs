@@ -33,6 +33,6 @@ version = "0.9"
 optional = true
 
 [build-dependencies]
-bindgen = { version = "0.69", optional = true }
+bindgen = { version = "0.65", optional = true }
 cmake = { version = "0.1", optional = true }
 pkg-config = { version = "0.3", optional = true }
