@@ -38,7 +38,7 @@ jobs:
 
       - name: Run bundled test
         run: |
-          cargo build --features "bundled,openssl_bundled"
+          cargo build --features "bundled,openssl_bundled" --verbose
           cargo run --manifest-path examples/hello/Cargo.toml --features "bundled,openssl_bundled" -- 5
 
       - name: Run pkg-config test
