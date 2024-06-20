@@ -24,6 +24,7 @@ buildtime_bindgen = [ "libevent-sys/buildtime_bindgen" ]
 openssl = [ "libevent-sys/openssl" ]
 openssl_bundled = [ "libevent-sys/openssl_bundled", "threading" ]
 threading = [ "libevent-sys/threading" ]
+logging = [ "libevent-sys/logging" ]
 
 # features for development
 verbose_build = [ "libevent-sys/verbose_build" ]
