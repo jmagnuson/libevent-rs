@@ -16,18 +16,17 @@ keywords = ["libevent", "bindings", "async", "io"]
 members = ["examples/hello"]
 
 [features]
-default = ["pkgconfig", "openssl", "threading", "buildtime_bindgen"]
-static = ["libevent-sys/static"]
-pkgconfig = ["libevent-sys/pkgconfig"]
-bundled = ["static", "libevent-sys/bundled"]
-buildtime_bindgen = ["libevent-sys/buildtime_bindgen"]
-openssl = ["libevent-sys/openssl"]
-openssl_bundled = ["libevent-sys/openssl_bundled", "threading"]
-threading = ["libevent-sys/threading"]
-logging = ["libevent-sys/logging"]
+default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen" ]
+static = [ "libevent-sys/static" ]
+pkgconfig = [ "libevent-sys/pkgconfig" ]
+bundled = [ "static", "libevent-sys/bundled" ]
+buildtime_bindgen = [ "libevent-sys/buildtime_bindgen" ]
+openssl = [ "libevent-sys/openssl" ]
+openssl_bundled = [ "libevent-sys/openssl_bundled", "threading" ]
+threading = [ "libevent-sys/threading" ]
 
 # features for development
-verbose_build = ["libevent-sys/verbose_build"]
+verbose_build = [ "libevent-sys/verbose_build" ]
 
 [dependencies]
 bitflags = "1.2"
