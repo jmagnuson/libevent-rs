@@ -13,7 +13,7 @@ categories = ["api-bindings", "asynchronous"]
 keywords = ["libevent", "bindings", "async", "io"]
 
 [workspace]
-members = ['examples/hello']
+members = ["examples/hello"]
 
 [features]
 default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen" ]
@@ -31,3 +31,4 @@ verbose_build = [ "libevent-sys/verbose_build" ]
 [dependencies]
 bitflags = "1.2"
 libevent-sys = { version = "0.2", path = "libevent-sys", default-features = false }
+
