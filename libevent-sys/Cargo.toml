@@ -1,6 +1,6 @@
 [package]
 name = "libevent-sys"
-version = "0.2.6"
+version = "0.3.0"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>",
            "Jon Magnuson <jon.magnuson@gmail.com>",
            "Grant Elbert <elbe0046@gmail.com>"]
