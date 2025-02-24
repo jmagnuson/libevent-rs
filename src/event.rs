@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// The primitive event-type which is created with [Event::new] using a
-/// a non-negative `RawFd`.
+/// non-negative `RawFd`.
 ///
 /// [Event::new]: struct.Event.html#method.new
 #[derive(Debug)]
