@@ -16,7 +16,7 @@ links = "event"
 build = "build.rs"
 
 [features]
-default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen" ]
+default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen", "expose_internal" ]
 static = []
 pkgconfig = [ "pkg-config" ]
 bundled = [ "static", "cmake" ]
@@ -24,6 +24,7 @@ buildtime_bindgen = [ "bindgen" ]
 openssl = [ "openssl-sys" ]
 openssl_bundled = [ "openssl-sys/vendored", "threading" ]
 threading = []
+expose_internal = []
 
 # features for development
 verbose_build = []

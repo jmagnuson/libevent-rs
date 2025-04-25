@@ -32,7 +32,7 @@ fn to_timeval(duration: Duration) -> libevent_sys::timeval {
 /// Wrapper for libevent's `event_base` which is responsible for executing
 /// associated events.
 pub struct Base {
-    base: NonNull<libevent_sys::event_base>,
+    base: Option<NonNull<libevent_sys::event_base>>,
 }
 
 /// The handle that abstracts over libevent's API in Rust.
@@ -60,7 +60,7 @@ impl Base {
     /// internally. Thus the caller is responsible for checking the
     /// `event_base` validity.
     pub unsafe fn from_raw(base: NonNull<libevent_sys::event_base>) -> Self {
-        Base { base }
+        Base { base: Some(base) }
     }
 
     /// Exposes the raw, non-null `event_base` pointer.
@@ -71,14 +71,20 @@ impl Base {
     /// itself is safe. However, this function serves as an escape hatch to do
     /// unsafe things.
     pub unsafe fn as_raw(&self) -> NonNull<libevent_sys::event_base> {
-        self.base
+        self.base.unwrap()
+    }
+
+    /// Consumes `Base`, leaking the raw, non-null `event_base` pointer without
+    /// calling `event_base_free`.
+    pub fn into_raw(mut self) -> NonNull<libevent_sys::event_base> {
+        self.base.take().unwrap()
     }
 
     /// Wrapper for libevent's `event_base_loop`, which runs the event loop in
     /// a manner defined by the `LoopFlags` input.
     pub fn loop_(&self, flags: LoopFlags) -> ExitReason {
         let exit_code = unsafe {
-            libevent_sys::event_base_loop(self.base.as_ptr(), flags.bits() as i32) as i32
+            libevent_sys::event_base_loop(self.base.unwrap().as_ptr(), flags.bits() as i32) as i32
         };
 
         match exit_code {
@@ -87,9 +93,9 @@ impl Base {
                     // Technically mutually-exclusive from `got_break`, but
                     // the check in `event_base_loop` comes first, so the logic
                     // here matches.
-                    if libevent_sys::event_base_got_exit(self.base.as_ptr()) != 0i32 {
+                    if libevent_sys::event_base_got_exit(self.base.unwrap().as_ptr()) != 0i32 {
                         ExitReason::GotExit
-                    } else if libevent_sys::event_base_got_break(self.base.as_ptr()) != 0i32 {
+                    } else if libevent_sys::event_base_got_break(self.base.unwrap().as_ptr()) != 0i32 {
                         ExitReason::GotBreak
                     } else {
                         // TODO: This should match flags for `EVLOOP_ONCE`, `_NONBLOCK`, etc.
@@ -217,6 +223,16 @@ impl Base {
 }
 
 unsafe impl Send for Base {}
+
+impl Drop for Base {
+    fn drop(&mut self) {
+        // `event_base` could have been leaked via `Base::into_raw`,
+        // so conditionally free here.
+        if let Some(base) = self.base.take() {
+            unsafe { libevent_sys::event_base_free(base.as_ptr()) }
+        }
+    }
+}
 
 impl<S, T: Exec<S, F>, F> EventCallbackWrapper<S, T, F> {
     pub fn new(inner: F, event: Event<S>) -> Box<Self> {

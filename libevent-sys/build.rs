@@ -188,6 +188,18 @@ fn generate_bindings(include_paths: Vec<String>, out_path: impl AsRef<Path>) {
         builder = builder.clang_arg(format!("-I{}", path));
     }
 
+    // Some of the libevent internals need to be exposed to inject a tokio backend.
+    // if cfg!(feature = "expose_internal") {
+        let _internal_builder = builder.clone()
+            .clang_arg("-Ilibevent")
+            .clang_arg(format!("-I{}/build/include", out_path.as_ref().display()))
+            .header("libevent/event-internal.h")
+            .header("libevent/evmap-internal.h")
+            .header("libevent/evthread-internal.h")
+            .blocklist_item(".*voucher.*")
+            .blocklist_item("strto.*");
+    // }
+
     let bindings = builder
         .header("wrapper.h")
         // Enable for more readable bindings
@@ -200,6 +212,22 @@ fn generate_bindings(include_paths: Vec<String>, out_path: impl AsRef<Path>) {
     bindings
         .write_to_file(out_path.as_ref().join("bindings.rs"))
         .expect("Failed to write bindings");
+    
+    if cfg!(feature = "expose_internal") {
+        let internal_bindings = _internal_builder
+            .header("wrapper.h")
+            // Enable for more readable bindings
+            // .rustfmt_bindings(true)
+            // Fixes a bug with a duplicated const
+            .blocklist_item("IPPORT_RESERVED")
+            .generate()
+            .expect("Failed to generate bindings");
+
+        internal_bindings
+            .write_to_file(out_path.as_ref().join("bindings_internal.rs"))
+            .expect("Failed to write bindings");
+        
+    }
 }
 
 #[cfg(not(feature = "buildtime_bindgen"))]

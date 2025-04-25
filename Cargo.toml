@@ -13,7 +13,7 @@ categories = ["api-bindings", "asynchronous"]
 keywords = ["libevent", "bindings", "async", "io"]
 
 [workspace]
-members = ["examples/hello"]
+members = ["examples/hello", "examples/hello-tokio"]
 
 [features]
 default = [ "pkgconfig", "openssl", "threading", "buildtime_bindgen" ]
@@ -24,6 +24,7 @@ buildtime_bindgen = [ "libevent-sys/buildtime_bindgen" ]
 openssl = [ "libevent-sys/openssl" ]
 openssl_bundled = [ "libevent-sys/openssl_bundled", "threading" ]
 threading = [ "libevent-sys/threading" ]
+tokio_compat = [ "tokio", "libevent-sys/expose_internal" ]
 
 # features for development
 verbose_build = [ "libevent-sys/verbose_build" ]
@@ -31,4 +32,6 @@ verbose_build = [ "libevent-sys/verbose_build" ]
 [dependencies]
 bitflags = "1.2"
 libevent-sys = { version = "0.3", path = "libevent-sys", default-features = false }
+tokio = {  version = "1", features = ["macros", "time", "net"], optional = true}
+tokio-util = "0.7"
 

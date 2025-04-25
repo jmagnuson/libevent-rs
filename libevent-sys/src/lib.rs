@@ -16,6 +16,11 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+#[cfg(feature = "expose_internal")]
+pub mod internal {
+    include!(concat!(env!("OUT_DIR"), "/bindings_internal.rs"));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,9 +1,8 @@
 [package]
-name = "hello"
+name = "hello-tokio"
 version = "0.1.0"
 authors = ["Jon Magnuson <jon.magnuson@gmail.com>"]
 edition = "2018"
-build="build.rs"
 
 [features]
 default = [ "bundled", "openssl", "buildtime_bindgen" ]
@@ -13,13 +12,13 @@ openssl_bundled = [ "libevent/openssl_bundled" ]
 pkgconfig = ["libevent/pkgconfig"]
 buildtime_bindgen = ["libevent/buildtime_bindgen"]
 
+[dependencies]
+tokio = { version = "1", features = ["macros", "time", "net", "rt"] }
+
 [dependencies.libevent]
 path = "../../"
-features = ["tokio"]
+features = ["tokio_compat"]
 
 # Needed to access headers, and create an FFI from C->Rust.
 [dependencies.libevent-sys]
 path = "../../libevent-sys"
-
-[build-dependencies]
-cmake = "0.1"

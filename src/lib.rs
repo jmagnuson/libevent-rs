@@ -2,12 +2,15 @@
 //!
 //! [libevent]: https://libevent.org/
 
+use std::ptr::NonNull;
 use std::time::Duration;
 
 mod event;
 pub use event::{Event, Fd, Interval, Oneshot};
 
 mod base;
+pub mod tokio_compat;
+
 pub use base::{
     Base, EventCallbackCtx, EventCallbackFlags, EventFlags, EvutilSocket, ExitReason, LoopFlags,
 };
@@ -50,5 +53,28 @@ impl Base {
     /// Turns the libevent base until exit.
     pub fn run(&self) -> ExitReason {
         self.loop_(LoopFlags::empty())
+    }
+}
+
+pub(crate) fn exit_code_to_reason(base:  NonNull<libevent_sys::event_base>, exit_code: i32, flags: LoopFlags) -> ExitReason {
+    match exit_code {
+        0 => {
+            unsafe {
+                // Technically mutually-exclusive from `got_break`, but
+                // the check in `event_base_loop` comes first, so the logic
+                // here matches.
+                if libevent_sys::event_base_got_exit(base.as_ptr()) != 0i32 {
+                    ExitReason::GotExit
+                } else if libevent_sys::event_base_got_break(base.as_ptr()) != 0i32 {
+                    ExitReason::GotBreak
+                } else {
+                    // TODO: This should match flags for `EVLOOP_ONCE`, `_NONBLOCK`, etc.
+                    ExitReason::Unknown { flags, exit_code }
+                }
+            }
+        }
+        -1 => ExitReason::Error,
+        1 => ExitReason::NoPendingEvents,
+        _ => ExitReason::Unknown { flags, exit_code },
     }
 }
