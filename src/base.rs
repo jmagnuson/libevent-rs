@@ -399,6 +399,7 @@ pub enum ExitReason {
 
 bitflags! {
     /// Flags given to the event loop to alter its behavior.
+    #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
     pub struct LoopFlags: u32 {
         const ONCE = libevent_sys::EVLOOP_ONCE;
         const NONBLOCK = libevent_sys::EVLOOP_NONBLOCK;
@@ -410,6 +411,7 @@ bitflags! {
     /// Flags used both as inputs to define activation characteristics of an event,
     /// as well as an output given in the callback as to what triggered event
     /// activation.
+    #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
     pub struct EventFlags: u32 {
         const TIMEOUT = libevent_sys::EV_TIMEOUT;
         const READ = libevent_sys::EV_READ;
