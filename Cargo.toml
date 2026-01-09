@@ -29,6 +29,6 @@ threading = [ "libevent-sys/threading" ]
 verbose_build = [ "libevent-sys/verbose_build" ]
 
 [dependencies]
-bitflags = "1.2"
+bitflags = "2.10"
 libevent-sys = { version = "0.3", path = "libevent-sys", default-features = false }
 
