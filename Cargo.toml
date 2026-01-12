@@ -1,6 +1,6 @@
 [package]
 name = "libevent"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jon Magnuson <jon.magnuson@gmail.com>",
            "Grant Elbert <elbe0046@gmail.com>"]
 description = "Rust bindings to the libevent async I/O framework"
@@ -30,5 +30,5 @@ verbose_build = [ "libevent-sys/verbose_build" ]
 
 [dependencies]
 bitflags = "2.10"
-libevent-sys = { version = "0.3", path = "libevent-sys", default-features = false }
+libevent-sys = { version = "0.4", path = "libevent-sys", default-features = false }
 
